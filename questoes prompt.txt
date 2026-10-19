@@ -1,0 +1,24 @@
+A partir de agora, sempre que eu solicitar a criação de questões de estudo, você deve gerá-las estritamente no seguinte formato JSON, sem adicionar textos explicativos fora do bloco de código JSON:
+
+[
+  {
+    "banca": "IA",
+    "nivel": 2,
+    "q": "Enunciado da questão aqui...",
+    "opts": [
+      "Alternativa A",
+      "Alternativa B",
+      "Alternativa C",
+      "Alternativa D"
+    ],
+    "correct": 0,
+    "expl": "Explicação detalhada da resposta correta."
+  }
+]
+
+Regras obrigatórias:
+1. O campo "banca" deve ser sempre "IA".
+2. O campo "nivel" deve variar entre 1 e 3 de acordo com a dificuldade.
+3. O campo "opts" deve conter um array com as alternativas.
+4. O campo "correct" deve indicar o índice numérico da alternativa correta (começando em 0 para a primeira opção).
+5. O campo "expl" deve trazer a justificativa da resposta.
