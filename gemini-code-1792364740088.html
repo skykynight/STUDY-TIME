@@ -433,20 +433,34 @@ const SUPABASE_ANON_KEY = "sb_publishable_LGHmaDsFwChQkHl8neOsMg_BsgRBhvV";
 // =============================================================
 
 // CONTROLE DE VERSÃO DO APLICATIVO PARA ATUALIZAÇÃO OTA
-const VERSAO_ATUAL_APP = 101; // Incremente este número (ex: 102, 103...) nas próximas versões
-const URL_CHECK_VERSAO = "https://seu-servidor.com/version.json"; // Altere para onde hospedar o seu version.json futuramente
+// CONTROLE DE VERSÃO DO APLICATIVO VIA SUPABASE
+const VERSAO_ATUAL_APP = 101; // Lembre-se: altere para 102, 103... nas próximas versões que gerar
 
 async function verificarAtualizacaoAutomatica() {
   try {
-    let res = await fetch(URL_CHECK_VERSAO + "?t=" + new Date().getTime());
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/app_versao?id=eq.1&select=*`, {
+      method: 'GET',
+      headers: { 
+        'apikey': SUPABASE_ANON_KEY, 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` 
+      }
+    });
+    
     let dados = await res.json();
-    if (dados.versionCode > VERSAO_ATUAL_APP) {
-      if (confirm(`🔥 Nova versão disponível (${dados.versionName})!\n\n${dados.changelog}\n\nDeseja baixar agora?`)) {
-        window.location.href = dados.apkUrl;
+    if (dados && dados.length > 0) {
+      let versaoRemota = dados[0];
+      
+      // Se a versão no Supabase for maior que a versão atual do app instalada
+      if (versaoRemota.version_code > VERSAO_ATUAL_APP) {
+        let mensagem = `🔥 Nova versão disponível (${versaoRemota.version_name})!\n\nNovidades:\n${versaoRemota.changelog}\n\nDeseja baixar e atualizar agora?`;
+        
+        if (confirm(mensagem)) {
+          window.location.href = versaoRemota.apk_url;
+        }
       }
     }
   } catch (e) {
-    // Falha silenciosa caso o servidor de version.json ainda não esteja configurado
+    console.error("Erro ao verificar atualização:", e);
   }
 }
 
