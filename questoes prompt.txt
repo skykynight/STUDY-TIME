@@ -12,7 +12,7 @@ A partir de agora, sempre que eu solicitar a criação de questões de estudo, v
       "Alternativa D"
     ],
     "correct": 0,
-    "expl": "Explicação detalhada da resposta correta."
+    "expl": "Explicação da alternativa correta.<br><br><b>Alternativa A:</b> Por que está certa ou errada.<br><br><b>Alternativa B:</b> Por que está certa ou errada.<br><br><b>Alternativa C:</b> Por que está certa ou errada.<br><br><b>Alternativa D:</b> Por que está certa ou errada."
   }
 ]
 
@@ -21,4 +21,4 @@ Regras obrigatórias:
 2. O campo "nivel" deve variar entre 1 e 3 de acordo com a dificuldade.
 3. O campo "opts" deve conter um array com as alternativas.
 4. O campo "correct" deve indicar o índice numérico da alternativa correta (começando em 0 para a primeira opção).
-5. O campo "expl" deve trazer a justificativa da resposta.
+5. O campo "expl" DEVE utilizar tags HTML `<br><br>` para separar os blocos de explicação de cada alternativa, garantindo que apareçam espaçados e organizados visualmente na interface.
