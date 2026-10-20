@@ -1,0 +1,2465 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <!-- CSS do KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<!-- JavaScript do KaTeX -->
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<!-- Script de auto-renderização com suporte a cifrão ($) -->
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$', display: false},
+        {left: '\\(', right: '\\)', display: false},
+        {left: '\\[', right: '\\]', display: true}
+      ],
+      throwOnError: false
+    });"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#141E33">
+<title>CFO — App de Estudos</title>
+<style>
+:root{
+  --navy:#141E33; --navy-2:#1E2C4A; --paper:#FAF8F3; --paper-2:#F1EDE3;
+  --brass:#B8912F; --brass-2:#D6AE4E; --ink:#20241F; --ink-soft:#5B5A52;
+  --green:#2F6845; --green-bg:#E7EFE6; --red:#A6392F; --red-bg:#F5E6E2;
+  --blue-bg:#EAF0F6; --line:#D8D0BE; --mnemo:#8B5E34; --mnemo-bg:#F3ECE0;
+  --serif:'Iowan Old Style','Palatino Linotype',Georgia,serif;
+  --mono:'Courier New',ui-monospace,monospace; --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --bg:var(--paper); --fg:var(--ink); --card-bg:#fff; --card-bg2:var(--paper-2);
+}
+[data-theme="dark"]{
+  --bg:#14171C; --fg:#E7E4DC; --card-bg:#1D2128; --card-bg2:#242832; --paper:#1D2128; --paper-2:#242832;
+  --line:#3A3F49; --ink:#E7E4DC; --ink-soft:#A9A69C; --mnemo-bg:#2A2318; --green-bg:#173324; --red-bg:#331C18; --blue-bg:#182430;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--fg);transition:background .2s,color .2s;}
+.wrap{max-width:920px;margin:0 auto;padding:18px 12px 60px;}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:50;background:var(--navy);color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:2px solid var(--brass);}
+.topbar h1{font-family:var(--serif);font-size:16px;margin:0;font-weight:700;cursor:pointer;}
+.nav-group{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.tab-btn{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:7px;padding:7px 12px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.tab-btn.active{background:var(--brass);border-color:var(--brass);color:#fff;}
+.theme-btn{background:none;border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:7px;padding:6px 10px;cursor:pointer;font-size:13px;}
+
+/* STATS */
+.hero-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:20px;}
+.stat-box{background:var(--card-bg);border:1px solid var(--line);border-radius:10px;padding:12px;text-align:center;}
+.stat-label{font-family:var(--mono);font-size:10.5px;color:var(--ink-soft);text-transform:uppercase;margin-bottom:4px;}
+.stat-val{font-family:var(--serif);font-size:24px;font-weight:700;color:var(--navy);}
+[data-theme="dark"] .stat-val{color:var(--brass-2);}
+
+/* PAINEL DE CICLO */
+.cycle-panel{background:var(--card-bg);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;}
+.cycle-info{display:flex;flex-direction:column;gap:4px;}
+.cycle-title{font-family:var(--serif);font-size:17px;font-weight:700;color:var(--brass-2);}
+
+/* TRILHA SEQUENCIAL */
+.trail-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:8px;}
+.trail-header h2{font-family:var(--serif);font-size:20px;margin:0;color:var(--brass-2);}
+.trail-container{position:relative;padding-left:36px;margin-top:10px;}
+.trail-container::before{content:'';position:absolute;left:15px;top:10px;bottom:10px;width:4px;background:var(--line);border-radius:4px;}
+.trail-node{position:relative;margin-bottom:22px;}
+.trail-dot{position:absolute;left:-36px;top:16px;width:34px;height:34px;border-radius:50%;background:var(--card-bg2);border:3px solid var(--line);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-weight:bold;font-size:13px;z-index:2;}
+.trail-node.done .trail-dot{background:var(--green);border-color:var(--green);color:#fff;}
+.trail-node.current .trail-dot{background:var(--brass);border-color:var(--brass-2);color:#fff;box-shadow:0 0 0 5px rgba(184,145,47,0.25);}
+.trail-card{background:var(--card-bg);border:1px solid var(--line);border-radius:12px;padding:16px 18px;cursor:pointer;transition:transform .15s,border-color .15s;}
+.trail-node.current .trail-card{border:2px solid var(--brass);}
+.trail-node.done .trail-card{border-left:5px solid var(--green);}
+.trail-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;}
+.trail-day-title{font-family:var(--serif);font-size:17px;font-weight:700;}
+.focus-badge{background:var(--brass);color:#fff;font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:99px;font-weight:bold;}
+.done-badge{background:var(--green-bg);color:var(--green);border:1px solid var(--green);font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:99px;font-weight:bold;}
+.trail-chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px;}
+.trail-chip{font-size:11.5px;background:var(--card-bg2);border:1px solid var(--line);padding:4px 9px;border-radius:6px;color:var(--ink-soft);}
+.trail-chip.ok{border-color:var(--green);color:var(--green);background:var(--green-bg);}
+.trail-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding-top:10px;border-top:1px dashed var(--line);}
+.trail-btn{background:var(--navy);color:#fff;border:1px solid var(--brass);padding:8px 16px;border-radius:8px;font-weight:600;font-size:13px;cursor:pointer;}
+.trail-node.current .trail-btn{background:var(--brass);border-color:var(--brass);}
+
+/* MATÉRIAS GRID */
+.hub-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin-bottom:24px;}
+.disc-card{display:flex;flex-direction:column;justify-content:space-between;background:var(--card-bg);border:1px solid var(--line);border-left:5px solid var(--brass);border-radius:10px;padding:16px;cursor:pointer;color:var(--fg);}
+.disc-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px;}
+.disc-name{font-family:var(--serif);font-size:15.5px;font-weight:700;}
+.disc-badge{font-family:var(--mono);font-size:10.5px;padding:3px 8px;border-radius:99px;background:var(--card-bg2);border:1px solid var(--line);color:var(--ink-soft);}
+.bar-bg{width:100%;height:7px;background:var(--card-bg2);border-radius:4px;overflow:hidden;border:1px solid var(--line);margin-bottom:8px;}
+.bar-fill{height:100%;background:var(--brass);}
+.disc-meta{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-soft);}
+
+/* CARDS DE TÓPICO & TEORIA */
+.topic-card{border:1px solid var(--line);border-radius:9px;padding:14px;margin-bottom:12px;background:var(--card-bg);}
+.topic-head{display:flex;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:6px;}
+.pill{background:var(--card-bg2);border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-family:var(--mono);font-size:10.5px;font-weight:600;text-transform:uppercase;color:var(--ink-soft);}
+.pill-disc{color:var(--navy);border-color:var(--navy);}
+[data-theme="dark"] .pill-disc{color:var(--brass-2);border-color:var(--brass-2);}
+.topic-title{font-family:var(--serif);font-size:15.5px;font-weight:700;margin-bottom:12px;line-height:1.4;}
+
+.teoria-box{display:none;background:var(--mnemo-bg);border:1px solid var(--brass);border-left:4px solid var(--brass);border-radius:8px;padding:14px;margin-bottom:12px;font-size:13.8px;line-height:1.65;}
+.teoria-box.open{display:block;}
+.teoria-box h4{margin:0 0 8px 0;color:var(--brass-2);font-family:var(--serif);font-size:15.5px;}
+.teoria-box ul{margin:6px 0;padding-left:20px;}
+.teoria-box li{margin-bottom:6px;}
+
+.action-row{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;}
+.action-btn{flex:1;font-size:13.5px;font-weight:600;padding:10px 12px;border-radius:7px;cursor:pointer;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn-teoria{background:var(--card-bg2);color:var(--fg);border-color:var(--brass);}
+.btn-questoes{background:var(--brass);color:#fff;border:none;}
+.btn-importar{background:var(--navy);color:#fff;border:1px solid var(--brass);}
+
+.topic-controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between;align-items:center;background:var(--card-bg2);padding:10px 14px;border-radius:8px;border:1px solid var(--line);}
+.ctrl-group{display:flex;flex-direction:column;gap:3px;align-items:center;}
+.ctrl-group label{font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;color:var(--ink-soft);}
+.ctrl-val{font-family:var(--mono);font-size:15px;font-weight:bold;color:var(--fg);}
+.num-input{width:50px;height:28px;text-align:center;border:1px solid var(--line);border-radius:6px;font-size:13.5px;background:var(--card-bg);color:var(--fg);font-weight:600;}
+
+.topic-footer{display:flex;justify-content:space-between;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);flex-wrap:wrap;gap:8px;}
+.check-rev{font-size:12.5px;cursor:pointer;display:flex;align-items:center;gap:6px;color:var(--red);font-weight:600;background:var(--red-bg);padding:4px 8px;border-radius:6px;border:1px solid var(--red);}
+.check-rev.off{background:transparent;border-color:transparent;color:var(--ink-soft);opacity:0.6;}
+
+.status-pend{background:transparent;color:var(--ink-soft);border-style:dashed;}
+.status-and{background:var(--blue-bg);color:#4A6FA5;border-color:#4A6FA5;}
+.status-conc{background:var(--green-bg);color:#2F6845;border-color:#2F6845;}
+
+.score-num{font-family:var(--serif);font-size:38px;font-weight:700;color:var(--navy);}
+[data-theme="dark"] .score-num{color:var(--brass-2);}
+.topic-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px;}
+.bar-mini{width:56px;height:6px;background:var(--card-bg2);border-radius:4px;overflow:hidden;border:1px solid var(--line);}
+.bar-mini-fill{height:100%;background:var(--brass);}
+.btn{font-family:var(--sans);font-size:13.5px;font-weight:600;padding:9px 16px;border-radius:7px;border:1px solid var(--line);cursor:pointer;background:var(--card-bg2);color:var(--fg);margin-right:6px;margin-bottom:6px;}
+.btn-primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+.btn-danger{background:var(--red);color:#fff;border-color:var(--red);}
+
+/* FORMULÁRIOS E INPUTS */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-family: var(--mono); font-size: 11.5px; font-weight: bold; margin-bottom: 4px; color: var(--brass-2); text-transform: uppercase; }
+.form-control { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--card-bg); color: var(--fg); font-family: var(--sans); font-size: 14px; }
+textarea.form-control { resize: vertical; min-height: 90px; }
+
+/* QUIZ & MODAIS */
+.q-meta-top{font-family:var(--mono);font-size:11px;color:var(--ink-soft);display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.q-text{font-family:var(--serif);font-size:16px;line-height:1.55;margin:0 0 16px;white-space:pre-line;}
+.opt-row{display:flex;gap:6px;margin-bottom:10px;align-items:stretch;}
+.opt-btn{flex:1;text-align:left;background:var(--card-bg2);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:14px;cursor:pointer;line-height:1.4;color:var(--fg);}
+.opt-letter{font-family:var(--mono);font-weight:700;color:var(--brass);margin-right:8px;}
+.opt-btn.correct{background:var(--green-bg);border-color:var(--green);}
+.opt-btn.wrong{background:var(--red-bg);border-color:var(--red);}
+.opt-btn.dim{opacity:0.6;}
+.strike-btn{flex:0 0 44px;border-radius:8px;border:1px solid var(--line);background:var(--card-bg2);font-size:16px;cursor:pointer;color:var(--ink-soft);}
+.strike-btn.active{background:var(--navy);color:#fff;}
+.opt-btn.struck{text-decoration:line-through;opacity:0.4;}
+.stamp{display:inline-block;font-family:var(--serif);font-weight:700;font-size:15px;padding:5px 14px;border:2px solid currentColor;border-radius:4px;transform:rotate(-2deg);margin:12px 0;}
+.stamp.ok{color:var(--green);} .stamp.no{color:var(--red);}
+.expl-box{background:var(--card-bg2);border-left:4px solid var(--brass);padding:14px;border-radius:0 8px 8px 0;font-size:14px;line-height:1.65;margin-top:12px;}
+.pill-nivel-1{background:#E7EFE6;color:#2F6845;border-color:#2F6845;}
+.pill-nivel-2{background:#FFF3CD;color:#856404;border-color:#856404;}
+.pill-nivel-3{background:#F5E6E2;color:#A6392F;border-color:#A6392F;}
+.pill-nivel-4{background:#3E1C38;color:#FF79C6;border-color:#FF79C6;}
+[data-theme="dark"] .pill-nivel-4{background:#3E1C38;color:#FF79C6;border-color:#FF79C6;}
+[data-theme="dark"] .pill-nivel-1{background:#173324;color:#8cdbaf;}
+[data-theme="dark"] .pill-nivel-2{background:#332b00;color:#ffe873;}
+[data-theme="dark"] .pill-nivel-3{background:#331C18;color:#f2958d;}
+
+/* GRÁFICO DE BARRAS DOS CICLOS */
+.chart-box { display:flex; align-items:flex-end; gap:12px; height:160px; padding:20px 10px 10px; border-bottom:2px solid var(--line); margin-bottom:16px; overflow-x:auto; }
+.chart-col { display:flex; flex-direction:column; align-items:center; flex:1; min-width:50px; height:100%; justify-content:flex-end; }
+.chart-bar { width:100%; max-width:42px; background:var(--brass); border-radius:6px 6px 0 0; transition:height 0.3s; position:relative; }
+.chart-val { font-family:var(--mono); font-size:11px; font-weight:bold; margin-bottom:4px; color:var(--fg); }
+.chart-lbl { font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin-top:6px; }
+
+/* MODAL */
+.modal-overlay { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:200; display:flex; align-items:center; justify-content:center; padding:16px; }
+.modal-card { background:var(--card-bg); border:1px solid var(--line); border-radius:12px; width:100%; max-width:650px; max-height:90vh; overflow-y:auto; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5); }
+
+.opt-btn {
+  user-select: text;
+  -webkit-user-select: text;
+}
+</style>
+</head>
+<body>
+
+<!-- TELA DE LOGIN OBRIGATÓRIA / BOAS-VINDAS -->
+<div id="modal-login-inicial" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width:420px;text-align:center;padding:30px;">
+    <h2 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;font-size:24px;">🚒 App de Estudos CFO</h2>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:24px;">Bem-vindo ao app de estudos! Para começar, digite o seu nome e crie o seu ID único de acesso.</p>
+    
+    <div class="form-group" style="text-align:left;">
+      <label>Seu Nome ou Apelido (Ex: SD Silva):</label>
+      <input type="text" id="setup-input-nome" class="form-control" placeholder="Digite seu nome...">
+    </div>
+    <div class="form-group" style="text-align:left;">
+      <label>ID Único (Ex: silva, carlos, ramiro):</label>
+      <input type="text" id="setup-input-id" class="form-control" placeholder="Identificador curto sem espaços...">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;margin-top:10px;" onclick="salvarConfigInicial()">🚀 Entrar e Começar a Estudar</button>
+  </div>
+</div>
+
+<div class="topbar">
+  <h1 id="app-main-title" onclick="showMainView('trilha')">🚒 CFO — App</h1>
+  <div class="nav-group">
+    <button class="tab-btn active" id="nav-trilha" onclick="showMainView('trilha')">🗺️ Trilha</button>
+    <button class="tab-btn" id="nav-materias" onclick="showMainView('materias')">📚 Matérias</button>
+    <button class="tab-btn" id="nav-cadernos" onclick="showMainView('cadernos')">🗂️ Cadernos</button>
+    <button class="tab-btn" id="nav-backup" onclick="showMainView('backup')">💾 Backup</button>
+    <button class="tab-btn" id="nav-revisao" onclick="showMainView('revisao')">⚠️ Revisão</button>
+    <button class="tab-btn" id="nav-simulado" onclick="showMainView('simulado')">🎯 Simulado</button>
+    <button class="tab-btn" id="nav-ranking" onclick="showMainView('ranking')">🏆 Ranking</button>
+    <button class="tab-btn" id="nav-perfil" onclick="showMainView('perfil')">👤 Perfil</button>
+    <button class="tab-btn" id="nav-relatorio" onclick="showMainView('relatorio')">📊 Relatório</button>
+    <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero-stats">
+    <div class="stat-box"><div class="stat-label">Aproveitamento Geral</div><div class="stat-val" id="hub-pct">0%</div></div>
+    <div class="stat-box"><div class="stat-label">Questões Feitas</div><div class="stat-val" id="hub-feitas">0</div></div>
+    <div class="stat-box"><div class="stat-label">Missões Concluídas</div><div class="stat-val" id="hub-topicos">0/0</div></div>
+  </div>
+
+  <!-- VIEW 1: TRILHA -->
+  <div id="view-trilha">
+    <!-- TELA DE ESCOLHA DO CONCURSO -->
+    <div id="trilha-seletor-container" style="display:none; text-align:center; padding: 40px 20px;">
+      <div class="topic-card" style="max-width: 500px; margin: 0 auto; padding: 30px;">
+        <h2 style="font-family: var(--serif); color: var(--brass-2); margin-top: 0; font-size: 22px;">🎯 Escolha o Concurso</h2>
+        <p style="font-size: 13.5px; color: var(--ink-soft); margin-bottom: 24px;">Selecione qual trilha de estudos deseja acessar agora:</p>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: var(--navy);" onclick="selecionarTrilha('CBMPE')">🚒 CFO CBMPE (Pernambuco)</button>
+          <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: var(--brass); border-color: var(--brass);" onclick="selecionarTrilha('CBMGO')">🚒 CFO CBMGO (Goiás)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONTEÚDO DA TRILHA (SÓ APARECE DEPOIS DE ESCOLHER) -->
+    <div id="trilha-conteudo-container" style="display:none;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <button class="btn btn-danger" style="background: var(--red); border-color: var(--red); color: #fff; margin:0;" onclick="voltarParaSeletorTrilha()">🔴 Voltar para a Seleção de Concursos</button>
+        <span id="badge-concurso-ativo" class="pill pill-disc" style="font-size: 13px; padding: 6px 14px;"></span>
+      </div>
+
+      <div class="cycle-panel">
+        <div class="cycle-info">
+          <div class="cycle-title" id="lbl-ciclo-atual">Ciclo Atual (#1)</div>
+          <div style="font-size:12.5px;color:var(--ink-soft);">Escolha a data do Dia 1 para preencher o restante em sequência, ou altere qualquer dia individualmente abaixo.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div>
+            <label style="font-size:10px;font-family:var(--mono);display:block;margin-bottom:3px;color:var(--brass-2);text-transform:uppercase;">Início (Dia 1):</label>
+            <input type="date" id="input-data-inicio" class="form-control" style="padding:6px 10px;width:150px;" onchange="alterarDataInicio(this.value)">
+          </div>
+          <button class="btn btn-danger" style="margin-top:16px;" onclick="encerrarCicloAtual()">🏁 Encerrar Ciclo</button>
+        </div>
+      </div>
+
+      <div class="trail-header"><h2>🗺️ Sequência de Estudos (Ciclo de 7 Dias)</h2></div>
+      <div class="trail-container" id="trail-list"></div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: MATÉRIAS -->
+  <div id="view-materias" style="display:none;">
+    <div class="trail-header"><h2>📚 Cadernos por Matéria</h2></div>
+    <div class="hub-grid" id="hub-disciplinas"></div>
+  </div>
+
+  <!-- VIEW 2.1: CADERNOS DE ACERTOS E ERROS -->
+  <div id="view-cadernos" style="display:none;">
+    <div class="trail-header"><h2>🗂️ Arquivo de Questões (Cadernos de Acertos e Erros)</h2></div>
+    
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btn-tab-acertos" onclick="renderCadernoTab('acertos')">🟢 Caderno de Acertos</button>
+      <button class="btn btn-danger" id="btn-tab-erros" onclick="renderCadernoTab('erros')">🔴 Caderno de Erros</button>
+    </div>
+
+    <div class="topic-card" style="margin-bottom:16px;padding:14px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;">
+        <div class="form-group" style="margin:0;">
+          <label>Matéria:</label>
+          <select id="filtro-caderno-materia" class="form-control" onchange="atualizarFiltroTopicosCaderno()">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Subtópico:</label>
+          <select id="filtro-caderno-topico" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Nível:</label>
+          <select id="filtro-caderno-nivel" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todos</option>
+            <option value="1">Nível 1 (Fácil)</option>
+            <option value="2">Nível 2 (Médio)</option>
+            <option value="3">Nível 3 (Difícil)</option>
+            <option value="4">Nível 4 (Impossível)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Banca:</label>
+          <select id="filtro-caderno-banca" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Motivo / Status:</label>
+          <select id="filtro-caderno-motivo" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todos</option>
+            <option value="sabia">🟢 Sabia perfeitamente</option>
+            <option value="parcial">🟡 Noção parcial</option>
+            <option value="chute">🟠 Chute cego</option>
+            <option value="dificil">🔴 Tava muito difícil</option>
+            <option value="detalhe">⚠️ Errei por detalhe</option>
+            <option value="ajuda">💡 Fiz/Precisei de Ajuda</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="content-cadernos"></div>
+  </div>
+
+  <!-- VIEW 3: TÓPICOS -->
+  <div id="view-topicos" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+      <button class="btn" id="btn-voltar-lista" onclick="showMainView('trilha')">⬅ Voltar</button>
+      <h2 id="lista-titulo" style="font-family:var(--serif);margin:0;color:var(--brass-2);font-size:19px;"></h2>
+    </div>
+    <div id="content-topicos"></div>
+  </div>
+
+  <!-- VIEW 4: BACKUP GERAL & SINCRONIZAÇÃO NUVEM -->
+  <div id="view-backup" style="display:none;">
+    <div class="topic-card">
+      <h2 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">☁️ Sincronização & Nuvem (Supabase)</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">As questões e resumos são globais para todos os amigos. Suas marcações e cadernos são individuais e sincronizados automaticamente na nuvem.</p>
+      
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+        <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="baixarDadosDaNuvem()">☁️ Sincronizar Agora</button>
+        <button class="btn" onclick="exportarBancoCompleto()">📥 Baixar JSON Local</button>
+      </div>
+
+      <div class="form-group">
+        <label>Texto do Banco (Backup Manual):</label>
+        <textarea id="adm-db-json" class="form-control" style="min-height: 80px;" placeholder='Cole o texto do JSON aqui se precisar importar manualmente...'></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:10px;" onclick="importarBancoCompleto()">🔄 Carregar e Aplicar Dados</button>
+    </div>
+  </div>
+
+  <!-- VIEW 5: REVISÃO -->
+  <div id="view-revisao" style="display:none;"><div id="content-rev"></div></div>
+
+  <!-- VIEW 6: SIMULADO -->
+  <div id="view-simulado" style="display:none;">
+    <div class="topic-card" id="setup-simulado">
+      <h2 style="font-family:var(--serif);margin-top:0;">🎯 Gerador de Simulado</h2>
+      <div style="margin:16px 0;"><div id="sim-disc-list" style="display:flex;flex-direction:column;gap:6px;"></div></div>
+      <div style="margin:16px 0;">
+        <strong style="font-size:14px;display:block;margin-bottom:8px;">Quantidade de Questões:</strong>
+        <select id="sim-qtd" style="padding:8px;border-radius:6px;border:1px solid var(--line);width:100px;">
+          <option value="5">5</option><option value="10" selected>10</option><option value="20">20</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" style="width:100%;font-size:16px;padding:12px;" onclick="startSimulado()">🚀 Iniciar Simulado</button>
+    </div>
+    <div id="run-simulado" style="display:none;"><div id="simulado-content"></div></div>
+  </div>
+
+  <!-- VIEW 7: RANKING -->
+  <div id="view-ranking" style="display:none;">
+    <div class="topic-card" style="margin-bottom: 14px; padding: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h3 style="font-family: var(--serif); margin: 0; color: var(--brass-2); font-size: 18px;">🏆 Placar Geral</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-family: var(--mono); font-size: 11.5px; text-transform: uppercase;">Filtrar Edital:</label>
+          <select id="filtro-ranking-edital" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;" onchange="renderizarRankingOnline()">
+            <option value="GERAL">📊 Geral (Todos os Editais)</option>
+            <option value="CBMPE">🚒 CFO CBMPE</option>
+            <option value="CBMGO">🚒 CFO CBMGO</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="content-ranking"></div>
+  </div>
+
+  <!-- VIEW 8: PERFIL -->
+  <div id="view-perfil" style="display:none;">
+    <div class="topic-card">
+      <h2 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">👤 Configurar seu Perfil</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">Altere seu nome ou ID de usuário a qualquer momento.</p>
+      
+      <div class="form-group">
+        <label>Seu Nome / Apelido no Ranking:</label>
+        <input type="text" id="input-meu-nome" class="form-control" placeholder="Ex: SD Silva">
+      </div>
+      <div class="form-group">
+        <label>ID Único na Nuvem (Ex: ramiro, carlos):</label>
+        <input type="text" id="input-meu-id" class="form-control" placeholder="ramiro">
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="salvarPerfilUsuario()">💾 Salvar Perfil e Sincronizar</button>
+    </div>
+  </div>
+
+  <!-- VIEW 9: RELATÓRIO -->
+  <div id="view-relatorio" style="display:none;"><div id="content-rel"></div></div>
+
+  <!-- VIEW 10: QUIZ -->
+  <div id="view-quiz" style="display:none;"><div id="content-quiz"></div></div>
+</div>
+
+<!-- MODAL PARA DETALHES DO USUÁRIO NO RANKING -->
+<div id="modal-ranking-detalhes" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 id="rank-detalhes-titulo" style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📊 Desempenho do Aluno</h3>
+    <div id="rank-detalhes-conteudo" style="margin-top:14px;max-height:60vh;overflow-y:auto;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-primary" onclick="fecharModalRankingDetalhes()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA EDITAR RESUMO TEÓRICO -->
+<div id="modal-resumo" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📖 Editar Resumo Teórico (HTML)</h3>
+    <input type="hidden" id="edit-res-id">
+    <div class="form-group">
+      <textarea id="edit-res-texto" class="form-control" style="min-height:220px;" placeholder="<h4>Título...</h4><p>Conteúdo...</p>"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" onclick="fecharModalResumo()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarResumoDireto()">💾 Salvar Resumo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA EDITAR QUESTÃO COMPLETA -->
+<div id="modal-editar-questao" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">✏️ Editar Questão Completa</h3>
+    <input type="hidden" id="edit-q-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label>Matéria / Disciplina:</label>
+        <select id="edit-q-materia" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label>Banca (Origem):</label>
+        <select id="edit-q-banca" class="form-control" onchange="checarNovaBanca(this)">
+          <option value="AOCP">AOCP</option>
+          <option value="IA">IA</option>
+          <option value="custom">➕ Outra / Criar nova origem...</option>
+        </select>
+        <input type="text" id="edit-q-banca-custom" class="form-control" style="margin-top:6px;display:none;" placeholder="Digite a nova banca/origem...">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group">
+  <label>Nível de Dificuldade:</label>
+  <select id="edit-q-nivel" class="form-control">
+    <option value="1">1 - Fácil</option>
+    <option value="2" selected>2 - Médio</option>
+    <option value="3">3 - Difícil</option>
+    <option value="4">🔥 4 - Impossível (Master)</option>
+  </select>
+</div>
+      <div class="form-group">
+        <label>Gabarito Correto:</label>
+        <select id="edit-q-correct" class="form-control">
+          <option value="0">Alternativa A</option>
+          <option value="1">Alternativa B</option>
+          <option value="2">Alternativa C</option>
+          <option value="3">Alternativa D</option>
+          <option value="4">Alternativa E</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Enunciado da Questão:</label>
+      <textarea id="edit-q-texto" class="form-control" style="min-height:100px;"></textarea>
+    </div>
+    <div class="form-group"><label>Alternativa A:</label><input type="text" id="edit-q-opt0" class="form-control"></div>
+    <div class="form-group"><label>Alternativa B:</label><input type="text" id="edit-q-opt1" class="form-control"></div>
+    <div class="form-group"><label>Alternativa C:</label><input type="text" id="edit-q-opt2" class="form-control"></div>
+    <div class="form-group"><label>Alternativa D:</label><input type="text" id="edit-q-opt3" class="form-control"></div>
+    <div class="form-group"><label>Alternativa E:</label><input type="text" id="edit-q-opt4" class="form-control"></div>
+    <div class="form-group">
+      <label>Comentário / Explicação:</label>
+      <textarea id="edit-q-expl" class="form-control" style="min-height:80px;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" onclick="fecharModalEditarQuestao()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarQuestaoEditada()">💾 Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA IMPORTAÇÃO EM MASSA -->
+<div id="modal-importar" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📥 Importação em Massa (Tópico <span id="imp-topico-id"></span>)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);">Cole aqui as questões em JSON para este tópico específico:</p>
+    <input type="hidden" id="imp-topico-num">
+    <div class="form-group">
+      <textarea id="adm-massa-texto" class="form-control" style="min-height: 180px;" placeholder='[ { "banca": "AOCP", "nivel": 2, "q": "...", "opts": ["..."], "correct": 2, "expl": "..." } ]'></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" onclick="fecharModalImportar()">Cancelar</button>
+      <button class="btn btn-primary" onclick="importarEmMassaTopico()">📥 Importar Questões</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================= CONFIGURAÇÃO DO SUPABASE =================
+const SUPABASE_URL = "https://yyfylclheivnlltquxxi.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_LGHmaDsFwChQkHl8neOsMg_BsgRBhvV"; 
+// =============================================================
+
+const VERSAO_ATUAL_APP = 101;
+
+async function verificarAtualizacaoAutomatica() {
+  try {
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/app_versao?id=eq.1&select=*`, {
+      method: 'GET',
+      headers: { 
+        'apikey': SUPABASE_ANON_KEY, 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` 
+      }
+    });
+    let dados = await res.json();
+    if (dados && dados.length > 0) {
+      let versaoRemota = dados[0];
+      if (versaoRemota.version_code > VERSAO_ATUAL_APP) {
+        let mensagem = `🔥 Nova versão disponível (${versaoRemota.version_name})!\n\nNovidades:\n${versaoRemota.changelog}\n\nDeseja baixar e atualizar agora?`;
+        if (confirm(mensagem)) {
+          window.location.href = versaoRemota.apk_url;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Erro ao verificar atualização:", e);
+  }
+}
+
+const STORAGE_KEY = 'cbmpe_tracker_v2';
+const META_KEY = 'cbmpe_meta_v2';
+const TEORIA_KEY = 'cbmpe_teoria_v2';
+const Q_KEY = 'cbmpe_questoes_v2';
+const CADERNO_ACERTOS_KEY = 'cbmpe_caderno_acertos_v2';
+const CADERNO_ERROS_KEY = 'cbmpe_caderno_erros_v2';
+const CICLOS_KEY = 'cbmpe_historico_ciclos_v1';
+const DATAS_CICLO_KEY = 'cbmpe_datas_ciclo_v1';
+const TEMPOS_TOPICOS_KEY = 'cbmpe_tempos_topicos_v1';
+
+let MEU_ID_USUARIO = localStorage.getItem('cbmpe_meu_id') || '';
+let CURSO_ATUAL = localStorage.getItem('cbmpe_curso_atual') || '';
+
+let progress = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+let customMeta = JSON.parse(localStorage.getItem(META_KEY)) || {};
+let DB_TEORIA = JSON.parse(localStorage.getItem(TEORIA_KEY)) || {};
+
+
+
+let cadernoAcertos = JSON.parse(localStorage.getItem(CADERNO_ACERTOS_KEY)) || [];
+let cadernoErros = JSON.parse(localStorage.getItem(CADERNO_ERROS_KEY)) || [];
+let historicoCiclos = JSON.parse(localStorage.getItem(CICLOS_KEY)) || [];
+let cicloAtualNum = localStorage.getItem('cbmpe_ciclo_atual_num') ? parseInt(localStorage.getItem('cbmpe_ciclo_atual_num')) : 1;
+let datasCiclo = JSON.parse(localStorage.getItem(DATAS_CICLO_KEY)) || {};
+let temposTopicos = JSON.parse(localStorage.getItem(TEMPOS_TOPICOS_KEY)) || {};
+
+const EDITAL_CBMPE = [
+  { id: 1, dia: 1, disc: "Língua Portuguesa", topico: "Compreensão e Interpretação de Textos + Tipologias Textuais", meta: 10, equivalente_id: "pt_interpretacao" },
+  { id: 2, dia: 1, disc: "Física", topico: "Grandezas Físicas, Vetores e Cinemática Escalar e Vetorial", meta: 10, equivalente_id: "fis_mecanica_cinematica" },
+  { id: 3, dia: 1, disc: "Física", topico: "Leis de Newton, Atrito, Força Resultante e Movimento Circular", meta: 10, equivalente_id: "fis_leis_newton_atrito" },
+  { id: 4, dia: 1, disc: "Química", topico: "Estrutura Atômica, Tabela Periódica e Ligações Químicas", meta: 10, equivalente_id: "qui_estrutura_atomica" },
+  { id: 5, dia: 1, disc: "Química", topico: "Óxidos, Ácidos, Bases e Sais + Nomenclatura e Funções Inorgânicas", meta: 10, equivalente_id: "qui_funcoes_inorganicas" },
+  { id: 6, dia: 1, disc: "Biologia", topico: "Citologia: Membrana Plasmática, Citoplasma e Fisiologia Celular", meta: 10, equivalente_id: "bio_citologia" },
+  { id: 7, dia: 1, disc: "Biologia", topico: "Divisão Celular (Mitose e Meiose) + Metabolismo Celular", meta: 10, equivalente_id: "bio_divisao_celular" },
+  { id: 8, dia: 1, disc: "Matemática", topico: "Conjuntos Numéricos, Razão, Proporção, Porcentagem e Juros", meta: 10, equivalente_id: "mat_razao_proporcao" },
+  { id: 9, dia: 1, disc: "Estatística", topico: "Conceitos Iniciais, População, Censo e Amostragem Aleatória", meta: 10 },
+  { id: 10, dia: 1, disc: "Informática", topico: "Internet, Intranet, Navegadores e Computação em Nuvem", meta: 10 },
+  { id: 11, dia: 1, disc: "Direito Constitucional", topico: "Teoria da Constituição: Conceito, Classificação e Elementos", meta: 10, equivalente_id: "dir_const_teoria" },
+  { id: 12, dia: 2, disc: "Língua Portuguesa", topico: "Sintaxe do Período Simples (Termos Essenciais, Integrantes e Acessórios)", meta: 10 },
+  { id: 13, dia: 2, disc: "Língua Portuguesa", topico: "Funções Morfossintáticas das Partículas 'Se' e 'Que'", meta: 10, equivalente_id: "pt_particulas_se_que" },
+  { id: 14, dia: 2, disc: "Física", topico: "Trabalho, Energia Cinética, Energia Potencial e Potência", meta: 10, equivalente_id: "fis_trabalho_energia" },
+  { id: 15, dia: 2, disc: "Física", topico: "Conservação e Dissipação de Energia Mecânica", meta: 10, equivalente_id: "fis_conservacao_energia" },
+  { id: 16, dia: 2, disc: "Química", topico: "Estados da Matéria, Gases Ideais e Princípio de Avogadro", meta: 10 },
+  { id: 17, dia: 2, disc: "Química", topico: "Soluções: Molaridade, Fração Molar, Concentração e Diluição", meta: 10, equivalente_id: "qui_solucoes" },
+  { id: 18, dia: 2, disc: "Biologia", topico: "Bioquímica Celular, Fotossíntese e Respiração Celular", meta: 10 },
+  { id: 19, dia: 2, disc: "Biologia", topico: "Codificação Genética, Síntese Proteica e Diferenciação Celular", meta: 10 },
+  { id: 20, dia: 2, disc: "Matemática", topico: "Funções Algébricas do 1º e 2º Graus + Gráficos e Inequações", meta: 10 },
+  { id: 21, dia: 2, disc: "Estatística", topico: "Descrição Numérica de Dados: Médias, Moda e Mediana", meta: 10 },
+  { id: 22, dia: 2, disc: "Direito Constitucional", topico: "Poder Constituinte: Originário, Derivado, Difuso e Mutações", meta: 10 },
+  { id: 23, dia: 3, disc: "Língua Portuguesa", topico: "Sintaxe do Período Composto: Coordenação e Subordinação", meta: 10 },
+  { id: 24, dia: 3, disc: "Língua Portuguesa", topico: "Mecanismos de Coesão Textual e Relações Semânticas", meta: 10, equivalente_id: "pt_coesao" },
+  { id: 25, dia: 3, disc: "Física", topico: "Quantidade de Movimento (Momento Linear), Impulso e Colisões", meta: 10 },
+  { id: 26, dia: 3, disc: "Física", topico: "Centro de Massa, Torque e Equilíbrio Estático de Ponto e Corpo Rígido", meta: 10 },
+  { id: 27, dia: 3, disc: "Química", topico: "Reações Químicas: Classificação, Rendimento e Balanceamento", meta: 10, equivalente_id: "qui_reacoes" },
+  { id: 28, dia: 3, disc: "Química", topico: "Estequiometria e Cálculos Estequiométricos de Reações", meta: 10 },
+  { id: 29, dia: 3, disc: "Biologia", topico: "Histologia Animal e Vegetal: Principais Tecidos e Funções", meta: 10 },
+  { id: 30, dia: 3, disc: "Biologia", topico: "Biotecnologia, Células-Tronco, DNA Recombinante e Clonagem", meta: 10 },
+  { id: 31, dia: 3, disc: "Matemática", topico: "Funções Polinomiais, Racionais, Exponenciais e Logarítmicas", meta: 10 },
+  { id: 32, dia: 3, disc: "Informática", topico: "Segurança da Informação: Ameaças, Malware, Phishing e Criptografia", meta: 10, equivalente_id: "info_seguranca" },
+  { id: 33, dia: 3, disc: "Direito Constitucional", topico: "Eficácia e Aplicabilidade das Normas Constitucionais", meta: 10 },
+  { id: 34, dia: 4, disc: "Língua Portuguesa", topico: "Concordância Nominal e Concordância Verbal", meta: 10, equivalente_id: "pt_concordancia" },
+  { id: 35, dia: 4, disc: "Língua Portuguesa", topico: "Regência Nominal e Verbal + Emprego do Sinal da Crase", meta: 10 },
+  { id: 36, dia: 4, disc: "Física", topico: "Hidrostática: Princípios de Stevin, Pascal e Arquimedes (Empuxo)", meta: 10, equivalente_id: "fis_hidrostatica" },
+  { id: 37, dia: 4, disc: "Física", topico: "Gravitação Universal, Leis de Kepler e Marés", meta: 10 },
+  { id: 38, dia: 4, disc: "Química", topico: "Termoquímica: Calor de Reação, Entalpia e Combustão", meta: 10, equivalente_id: "qui_termoquimica" },
+  { id: 39, dia: 4, disc: "Química", topico: "Cinética Química: Energia de Ativação, Velocidade e Catalisadores", meta: 10, equivalente_id: "qui_cinetica" },
+  { id: 40, dia: 4, disc: "Biologia", topico: "Fisiologia Humana: Sistemas Circulatório, Respiratório e Digestório", meta: 10, equivalente_id: "bio_fisiologia_cardio_resp" },
+  { id: 41, dia: 4, disc: "Biologia", topico: "Fisiologia Humana: Sistemas Nervoso, Endócrino e Excretor", meta: 10, equivalente_id: "bio_fisiologia_nervoso" },
+  { id: 42, dia: 4, disc: "Matemática", topico: "Geometria Plana: Ângulos, Triângulos, Teorema de Tales e Áreas", meta: 10 },
+  { id: 43, dia: 4, disc: "Estatística", topico: "Medidas de Dispersão (Variância, Desvio-Padrão) e Boxplot", meta: 10 },
+  { id: 44, dia: 4, disc: "Direito Constitucional", topico: "Direitos e Garantias Individuais e Coletivos (Art. 5º da CF)", meta: 10, equivalente_id: "dir_const_art5" },
+  { id: 45, dia: 5, disc: "Língua Portuguesa", topico: "Pontuação e Suas Funções Semânticas no Texto", meta: 10, equivalente_id: "pt_pontuacao" },
+  { id: 46, dia: 5, disc: "Língua Portuguesa", topico: "Colocação Pronominal, Ortografia Oficial e Acentuação", meta: 10 },
+  { id: 47, dia: 5, disc: "Física", topico: "Termologia: Calorimetria, Escalas e Dilatação Térmica", meta: 10, equivalente_id: "fis_termologia" },
+  { id: 48, dia: 5, disc: "Física", topico: "Leis da Termodinâmica, Ciclo de Carnot e Máquinas Térmicas", meta: 10, equivalente_id: "fis_termodinamica" },
+  { id: 49, dia: 5, disc: "Química", topico: "Equilíbrio Químico e Iônico: Le Chatelier, pH, pOH e Solução Tampão", meta: 10, equivalente_id: "qui_equilibrio" },
+  { id: 50, dia: 5, disc: "Química", topico: "Reações Redox, Pilhas, Potencial Eletroquímico e Eletrólise", meta: 10 },
+  { id: 51, dia: 5, disc: "Biologia", topico: "Ecologia: Ecossistemas, Cadeia/Teia Alimentar e Dinâmica de Populações", meta: 10 },
+  { id: 52, dia: 5, disc: "Biologia", topico: "Ciclos Biogeoquímicos, Biomas Brasileiros e Serviços Ecossistêmicos", meta: 10 },
+  { id: 53, dia: 5, disc: "Matemática", topico: "Geometria Espacial: Prismas, Cilindros, Pirâmides, Cones e Volumes", meta: 10 },
+  { id: 54, dia: 5, disc: "Informática", topico: "Windows 11, Prompt de Comando e Pacotes Office/LibreOffice", meta: 10, equivalente_id: "info_office" },
+  { id: 55, dia: 5, disc: "Direito Constitucional", topico: "Remédios Constitucionais, Direitos Sociais, Nacionalidade e Políticos", meta: 10 },
+  { id: 56, dia: 6, disc: "Língua Estrangeira (Inglês)", topico: "Interpretação de Textos e Vocabulário Técnico", meta: 10 },
+  { id: 57, dia: 6, disc: "Língua Estrangeira (Inglês)", topico: "Estruturas Gramaticais: Tempos Verbais, Modais e Voz Passiva", meta: 10 },
+  { id: 58, dia: 6, disc: "Física", topico: "Fenômenos Elétricos: Campo, Potencial, Lei de Ohm, Circuitos e Joule", meta: 10, equivalente_id: "fis_eletrodinamica" },
+  { id: 59, dia: 6, disc: "Física", topico: "Fenômenos Magnéticos, Ondulatória e Óptica Geométrica", meta: 10, equivalente_id: "fis_ondulatoria_optica" },
+  { id: 60, dia: 6, disc: "Química", topico: "Química Orgânica: Funções, Nomenclatura e Isomeria", meta: 10 },
+  { id: 61, dia: 6, disc: "Química", topico: "Aspectos Químicos do Fogo, Combustão, Produtos Químicos e FDS", meta: 10 },
+  { id: 62, dia: 6, disc: "Biologia", topico: "Problemas Ambientais, Saúde Pública/ISTs e Primeiros Socorros", meta: 10 },
+  { id: 63, dia: 6, disc: "Matemática", topico: "Trigonometria, Análise Combinatória e Noções de Probabilidade", meta: 10 },
+  { id: 64, dia: 6, disc: "Estatística", topico: "Variáveis Aleatórias, Distribuições, Testes t/F e Regressão Linear", meta: 10 },
+  { id: 65, dia: 6, disc: "Informática", topico: "Armazenamento de Dados, Tipos de Backup e Restauração", meta: 10 },
+  { id: 66, dia: 6, disc: "Direito Constitucional", topico: "Organização do Estado, Poderes e Controle de Constitucionalidade", meta: 10 },
+  { id: 67, dia: 7, disc: "Redação Discursiva", topico: "Discursiva Operacional (20 a 30 linhas) - Tema BM", meta: 1, equivalente_id: "redacao_bm" },
+  { id: 68, dia: 7, disc: "Buffer / Atrasos", topico: "Reposição de questões/tópicos pendentes da semana", meta: 0, equivalente_id: "buffer_semanal" },
+  { id: 69, dia: 7, disc: "Caderno de Erros", topico: "Refazer questões erradas marcadas com 'Precisa Revisar'", meta: 0, equivalente_id: "caderno_erros_semana" }
+];
+
+const EDITAL_CBMGO = [
+  { id: 101, dia: 1, disc: "Noções de Física", topico: "Mecânica: 1ª e 2ª Leis + Atrito e Força Resultante", meta: 10, equivalente_id: "fis_leis_newton_atrito" },
+  { id: 102, dia: 1, disc: "Noções de Química", topico: "Reações Químicas + Reatividade de Óxidos e Metais", meta: 10, equivalente_id: "qui_reacoes" },
+  { id: 103, dia: 1, disc: "Noções de Biologia", topico: "Anatomia do Trauma: Esqueleto Apendicular e Membros", meta: 10 },
+  { id: 104, dia: 1, disc: "Atividade BM", topico: "Teoria do Fogo / Tetraedro + Fases do Incêndio Urbano", meta: 10 },
+  { id: 105, dia: 1, disc: "D. Administrativo", topico: "Processo Administrativo (Lei Estadual nº 13.800/01)", meta: 10 },
+  { id: 106, dia: 1, disc: "Raciocínio Lógico", topico: "Matemática Proporcional, Razão, Proporção e Percentual", meta: 10, equivalente_id: "mat_razao_proporcao" },
+  { id: 107, dia: 1, disc: "D. Penal Militar", topico: "Teoria do Crime Militar e Tipicidade", meta: 10 },
+  { id: 108, dia: 1, disc: "D. Constitucional", topico: "Estado de Defesa e Segurança Pública (Art. 136 da CF)", meta: 10 },
+  { id: 109, dia: 1, disc: "Língua Portuguesa", topico: "Sintaxe e Funções das Partículas \"Se\" e \"Que\"", meta: 10, equivalente_id: "pt_particulas_se_que" },
+  { id: 110, dia: 1, disc: "Realidade de Goiás", topico: "Economia Colonial e Mineração no Século XVIII", meta: 10 },
+  { id: 111, dia: 1, disc: "Informática", topico: "Segurança Cibernética, Golpes Digitais e Phishing", meta: 10, equivalente_id: "info_seguranca" },
+  { id: 112, dia: 2, disc: "Noções de Física", topico: "Eletrodinâmica: Efeito Joule, Potência e Curto-Circuito", meta: 10, equivalente_id: "fis_eletrodinamica" },
+  { id: 113, dia: 2, disc: "Noções de Química", topico: "Soluções: Molaridade + Partes por Milhão (PPM) e Dureza", meta: 10, equivalente_id: "qui_solucoes" },
+  { id: 114, dia: 2, disc: "Noções de Biologia", topico: "Fisiologia Cardiovascular: Dinâmica de Câmaras Cardíacas", meta: 10, equivalente_id: "bio_fisiologia_cardio_resp" },
+  { id: 115, dia: 2, disc: "Atividade BM", topico: "Métodos de Extinção + Classes de Incêndio (A, B, C, D, K)", meta: 10 },
+  { id: 116, dia: 2, disc: "D. Administrativo", topico: "Estrutura Administrativa e Entidades Públicas", meta: 10 },
+  { id: 117, dia: 2, disc: "Raciocínio Lógico", topico: "Lógica Proposicional, Negação e Quantificadores", meta: 10 },
+  { id: 118, dia: 2, disc: "D. Penal Militar", topico: "Penas Principais e Penas Acessórias no CPM", meta: 10 },
+  { id: 119, dia: 2, disc: "D. Constitucional", topico: "Repartição de Competências Legislativas (Art. 22 CF)", meta: 10 },
+  { id: 120, dia: 2, disc: "Língua Portuguesa", topico: "Coesão Textual e Elementos de Transição (Conectivos)", meta: 10, equivalente_id: "pt_coesao" },
+  { id: 121, dia: 2, disc: "Realidade de Goiás", topico: "Expansão Capitalista e Modernização Pós-1930 / Marcha Oeste", meta: 10 },
+  { id: 122, dia: 2, disc: "Informática", topico: "Pacote Office: Mala Direta, Word e Excel", meta: 10, equivalente_id: "info_office" },
+  { id: 123, dia: 3, disc: "Noções de Física", topico: "Termologia: Calor Sensível, Hipotermia e Condução/Fourier", meta: 10, equivalente_id: "fis_termologia" },
+  { id: 124, dia: 3, disc: "Noções de Química", topico: "Funções Inorgânicas: Força Ácida, Bases e Sais", meta: 10, equivalente_id: "qui_funcoes_inorganicas" },
+  { id: 125, dia: 3, disc: "Noções de Biologia", topico: "Sistema Cardiovascular Especializado (Artérias, Veias e Porta)", meta: 10 },
+  { id: 126, dia: 3, disc: "Atividade BM", topico: "Suporte Básico de Vida (SBV) + Extintores e Agentes", meta: 10 },
+  { id: 127, dia: 3, disc: "D. Administrativo", topico: "Responsabilidade Civil do Estado (Art. 37, §6º da CF)", meta: 10 },
+  { id: 128, dia: 3, disc: "Raciocínio Lógico", topico: "Teoria dos Conjuntos e Diagramas de Venn", meta: 10 },
+  { id: 129, dia: 3, disc: "Proc. Penal Mil.", topico: "Inquérito Policial Militar (IPM): Prazos e Delegação", meta: 10 },
+  { id: 130, dia: 3, disc: "D. Constitucional", topico: "Constituição de Goiás: Normas Militares e Bombeiros", meta: 10 },
+  { id: 131, dia: 3, disc: "Língua Portuguesa", topico: "Semântica Verbal, Modos/Tempos e Emprego da Vírgula", meta: 10, equivalente_id: "pt_pontuacao" },
+  { id: 132, dia: 3, disc: "Realidade de Goiás", topico: "Diversidade Étnica e Povos Indígenas de Goiás", meta: 10 },
+  { id: 133, dia: 3, disc: "Informática", topico: "Arquitetura de Computadores e Periféricos (Entrada/Saída)", meta: 10 },
+  { id: 134, dia: 4, disc: "Noções de Física", topico: "Cinemática do Trauma + Hidrostática (Pascal e Arquimedes)", meta: 10, equivalente_id: "fis_hidrostatica" },
+  { id: 135, dia: 4, disc: "Noções de Química", topico: "Termoquímica (Combustão) + Estequiometria (Comburente)", meta: 10, equivalente_id: "qui_termoquimica" },
+  { id: 136, dia: 4, disc: "Noções de Biologia", topico: "Fisiologia Respiratória e Asfixia (Trocas Gasosas, CO, Cianeto)", meta: 10 },
+  { id: 137, dia: 4, disc: "Legislação CBMGO", topico: "Fenômenos Térmicos + Código Contra Incêndio CTRCON", meta: 10 },
+  { id: 138, dia: 4, disc: "D. Administrativo", topico: "Atos Administrativos + Poderes (Vinculado, Discricionário, Polícia)", meta: 10 },
+  { id: 139, dia: 4, disc: "Raciocínio Lógico", topico: "Tabela-Verdade, Condicionais e Leis de De Morgan", meta: 10 },
+  { id: 140, dia: 4, disc: "D. Penal Militar", topico: "Crimes Militares em Espécie (Desobediência, Motim, etc.)", meta: 10 },
+  { id: 141, dia: 4, disc: "D. Constitucional", topico: "Segurança Pública: Art. 144 da CF e o CBM", meta: 10 },
+  { id: 142, dia: 4, disc: "Língua Portuguesa", topico: "Concordância Verbal/Nominal e Regência/Crase", meta: 10, equivalente_id: "pt_concordancia" },
+  { id: 143, dia: 4, disc: "Realidade de Goiás", topico: "Geografia Física: Relevo, Bacias Hidrográficas e Cerrado", meta: 10 },
+  { id: 144, dia: 4, disc: "Informática", topico: "Redes de Computadores, Protocolos (TCP/IP, HTTPS) e Browsers", meta: 10 },
+  { id: 145, dia: 5, disc: "Noções de Física", topico: "Termodinâmica (Gases/Trabalho) + Dinâmica Rotacional/Estática", meta: 10, equivalente_id: "fis_termodinamica" },
+  { id: 146, dia: 5, disc: "Noções de Química", topico: "Cinética Química + Funções Orgânicas e Combustíveis", meta: 10, equivalente_id: "qui_cinetica" },
+  { id: 147, dia: 5, disc: "Noções de Biologia", topico: "Fisiologia do Sistema Nervoso: Escala de Glasgow e Trauma", meta: 10, equivalente_id: "bio_fisiologia_nervoso" },
+  { id: 148, dia: 5, disc: "Legislação CBMGO", topico: "Estatuto dos Militares: Conselho de Justificação, Férias e Promoções", meta: 10 },
+  { id: 149, dia: 5, disc: "D. Administrativo", topico: "Nova Lei de Licitações (Lei nº 14.133/21)", meta: 10 },
+  { id: 150, dia: 5, disc: "Raciocínio Lógico", topico: "Análise Combinatória: Permutação, Arranjo e Combinação", meta: 10 },
+  { id: 151, dia: 5, disc: "Proc. Penal Mil.", topico: "Prisão em Flagrante Delito Militar e Auto de Prisão", meta: 10 },
+  { id: 152, dia: 5, disc: "D. Constitucional", topico: "Direitos e Garantias Fundamentais (Art. 5º da CF)", meta: 10, equivalente_id: "dir_const_art5" },
+  { id: 153, dia: 5, disc: "Língua Portuguesa", topico: "Reforço: Conectivos, Conjunções e Interpretação Textual", meta: 10, equivalente_id: "pt_coesao" },
+  { id: 154, dia: 5, disc: "Realidade de Goiás", topico: "Patrimônio Cultural, Folclore (Cavalhadas, Fogaréu) e Tradições", meta: 10 },
+  { id: 155, dia: 5, disc: "Informática", topico: "Sistemas Operacionais: Windows 10 e 11 + Gestão de Pastas", meta: 10, equivalente_id: "info_office" },
+  { id: 156, dia: 6, disc: "Noções de Física", topico: "Ondulatória (Doppler) + Óptica Geométrica e Gravitação", meta: 10, equivalente_id: "fis_ondulatoria_optica" },
+  { id: 157, dia: 6, disc: "Noções de Química", topico: "Equilíbrio Químico (Le Chatelier) + Radioatividade (Alfa, Beta, Gama)", meta: 10, equivalente_id: "qui_equilibrio" },
+  { id: 158, dia: 6, disc: "Noções de Biologia", topico: "Citologia, Bioquímica Celular e Genética Básica", meta: 10, equivalente_id: "bio_citologia" },
+  { id: 159, dia: 6, disc: "Legislação CBMGO", topico: "Código de Ética e Disciplina + LOB CBMGO (Lei nº 18.305/13)", meta: 10 },
+  { id: 160, dia: 6, disc: "D. Administrativo", topico: "Improbidade Administrativa (Lei 8.429/92) + Bens e Serviços", meta: 10 },
+  { id: 161, dia: 6, disc: "Raciocínio Lógico", topico: "Probabilidade Simples e Condicional", meta: 10 },
+  { id: 162, dia: 6, disc: "Proc. Penal Mil.", topico: "Medidas Preventivas e Assecuratórias no CPPM", meta: 10 },
+  { id: 163, dia: 6, disc: "D. Constitucional", topico: "Organização dos Poderes + Funções Essenciais à Justiça", meta: 10 },
+  { id: 164, dia: 6, disc: "Língua Portuguesa", topico: "Reforço: Partículas Se/Que + Sintaxe e Pontuação Geral", meta: 10, equivalente_id: "pt_particulas_se_que" },
+  { id: 165, dia: 6, disc: "Realidade de Goiás", topico: "Reforço: Agropecuária Moderna, Urbanização e Economia Atual", meta: 10 },
+  { id: 166, dia: 6, disc: "D. Ambiental", topico: "Lei de Crimes Ambientais (Lei 9.605/98) e Queimadas/Flora", meta: 10 },
+  { id: 67, dia: 7, disc: "Redação Discursiva", topico: "Discursiva Operacional (20 a 30 linhas) - Tema BM", meta: 1, equivalente_id: "redacao_bm" },
+  { id: 68, dia: 7, disc: "Buffer / Atrasos", topico: "Reposição de questões/tópicos pendentes da semana", meta: 0, equivalente_id: "buffer_semanal" },
+  { id: 69, dia: 7, disc: "Caderno de Erros", topico: "Refazer questões erradas marcadas com 'Precisa Revisar'", meta: 0, equivalente_id: "caderno_erros_semana" }
+];
+
+let EDITAL_ALL = [];
+
+const SUBJECTS_META = [
+  { disc: "Língua Portuguesa", icon: "📚", label: "Língua Portuguesa" },
+  { disc: "Física", icon: "⚛️", label: "Física" },
+  { disc: "Noções de Física", icon: "⚛️", label: "Noções de Física" },
+  { disc: "Química", icon: "🧪", label: "Química" },
+  { disc: "Noções de Química", icon: "🧪", label: "Noções de Química" },
+  { disc: "Biologia", icon: "🧬", label: "Biologia" },
+  { disc: "Noções de Biologia", icon: "🧬", label: "Noções de Biologia" },
+  { disc: "Matemática", icon: "📐", label: "Matemática" },
+  { disc: "Estatística", icon: "📊", label: "Estatística" },
+  { disc: "Informática", icon: "💻", label: "Informática" },
+  { disc: "Direito Constitucional", icon: "⚖️", label: "Direito Constitucional" },
+  { disc: "D. Constitucional", icon: "⚖️", label: "D. Constitucional" },
+  { disc: "Língua Estrangeira (Inglês)", icon: "🇺🇸", label: "Inglês" },
+  { disc: "Atividade BM", icon: "🚒", label: "Atividade BM" },
+  { disc: "D. Administrativo", icon: "🏛️", label: "D. Administrativo" },
+  { disc: "Raciocínio Lógico", icon: "🧠", label: "Raciocínio Lógico" },
+  { disc: "D. Penal Militar", icon: "⚔️", label: "D. Penal Militar" },
+  { disc: "Realidade de Goiás", icon: "🗺️", label: "Realidade de Goiás" },
+  { disc: "Proc. Penal Mil.", icon: "⚖️", label: "Proc. Penal Militar" },
+  { disc: "Legislação CBMGO", icon: "📜", label: "Legislação CBMGO" },
+  { disc: "D. Ambiental", icon: "🌲", label: "Direito Ambiental" },
+  { disc: "Redação Discursiva", icon: "✍️", label: "Redação" },
+  { disc: "Buffer / Atrasos", icon: "⏳", label: "Buffer" },
+  { disc: "Caderno de Erros", icon: "📖", label: "Erros" }
+];
+
+const DAY_TITLES_CBMPE = {
+  1: "Dia 1 — Base Geral & Exatas I",
+  2: "Dia 2 — Sintaxe, Energia, Soluções & Poder Constituinte",
+  3: "Dia 3 — Período Composto, Colisões, Estequiometria & Segurança",
+  4: "Dia 4 — Concordância, Crase, Hidrostática, Termoquímica & Art. 5º",
+  5: "Dia 5 — Pontuação, Termodinâmica, Eletroquímica, Ecologia & Remédios",
+  6: "Dia 6 — Inglês, Eletricidade, Química do Fogo, Probabilidade & Poderes",
+  7: "Dia 7 — Redação Operacional BM, Buffer & Caderno de Erros"
+};
+
+const DAY_TITLES_CBMGO = {
+  1: "Dia 1 — Física, Química, Biologia, Penal Mil., Constitucional & Atualidades",
+  2: "Dia 2 — Eletrodinâmica, Soluções, Fisiologia e Lógica",
+  3: "Dia 3 — Termologia, Funções Inorgânicas, IPM e Língua Portuguesa",
+  4: "Dia 4 — Hidrostática, Termoquímica, CBMGO e Regência",
+  5: "Dia 5 — Termodinâmica, Licitações, Flagrante e Estatuto",
+  6: "Dia 6 — Ondulatória, Equilíbrio Químico, CPPM e Meio Ambiente",
+  7: "Dia 7 — Redação Operacional BM, Buffer & Caderno de Erros"
+};
+
+let DAY_TITLES = {};
+
+function carregarEdital() {
+  EDITAL_ALL = CURSO_ATUAL === 'CBMGO' ? EDITAL_CBMGO : EDITAL_CBMPE;
+  DAY_TITLES = CURSO_ATUAL === 'CBMGO' ? DAY_TITLES_CBMGO : DAY_TITLES_CBMPE;
+  
+  EDITAL_ALL.forEach(item => {
+    if (customMeta[item.id] !== undefined) item.meta = customMeta[item.id];
+  });
+
+  let headerTitle = document.getElementById('app-main-title');
+  if(headerTitle) {
+    headerTitle.innerText = CURSO_ATUAL === 'CBMGO' ? "🚒 CFO CBMGO — App" : "🚒 CFO CBMPE — App";
+  }
+
+  let badgeEl = document.getElementById('badge-concurso-ativo');
+  if(badgeEl) {
+    badgeEl.innerText = CURSO_ATUAL === 'CBMGO' ? "🎯 CFO CBMGO (Goiás)" : "🎯 CFO CBMPE (Pernambuco)";
+  }
+}
+
+function selecionarTrilha(curso) {
+  CURSO_ATUAL = curso;
+  localStorage.setItem('cbmpe_curso_atual', CURSO_ATUAL);
+  carregarEdital();
+  document.getElementById('trilha-seletor-container').style.display = 'none';
+  document.getElementById('trilha-conteudo-container').style.display = 'block';
+  renderTrail();
+  updateGlobalStats();
+}
+
+function voltarParaSeletorTrilha() {
+  CURSO_ATUAL = '';
+  localStorage.removeItem('cbmpe_curso_atual');
+  document.getElementById('trilha-conteudo-container').style.display = 'none';
+  document.getElementById('trilha-seletor-container').style.display = 'block';
+}
+
+let CURRENT_FILTER = { type: 'trilha', val: null };
+
+function getP(id) {
+  if (!progress[id]) progress[id] = { revisar: false, note: "" };
+  return progress[id];
+}
+
+function getTopicStats(topicoId) {
+  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let itemAtual = poolEd.find(e => e.id === topicoId);
+  
+  let idsParaBuscar = [topicoId];
+  if (itemAtual && itemAtual.equivalente_id) {
+    idsParaBuscar = poolEd
+      .filter(e => e.equivalente_id === itemAtual.equivalente_id)
+      .map(e => e.id);
+  }
+
+  let acertos = cadernoAcertos.filter(q => idsParaBuscar.includes(q.topico_id)).length;
+  let erros = cadernoErros.filter(q => idsParaBuscar.includes(q.topico_id)).length;
+  let feitas = acertos + erros;
+  let pct = feitas > 0 ? Math.round((acertos / feitas) * 100) : 0;
+  return { feitas, acertos, erros, pct };
+}
+
+// ================= SUPABASE SYNC (GLOBAL + INDIVIDUAL + RANKING) =================
+async function baixarDadosDaNuvem() {
+  if (!MEU_ID_USUARIO) return;
+  try {
+    let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
+      method: 'GET',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    let jsonGlobal = await resGlobal.json();
+    if (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) {
+      let g = jsonGlobal[0].dados;
+      if(g.questoes) DB_QUESTOES_ALL = g.questoes;
+      if(g.teoria) DB_TEORIA = g.teoria;
+    } else {
+      await salvarConteudoGlobalNaNuvem();
+    }
+
+    let resIndiv = await fetch(`${SUPABASE_URL}/rest/v1/app_progresso?usuario_id=eq.${MEU_ID_USUARIO}&select=dados`, {
+      method: 'GET',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    let jsonIndiv = await resIndiv.json();
+    if (jsonIndiv && jsonIndiv.length > 0 && jsonIndiv[0].dados) {
+      let p = jsonIndiv[0].dados;
+      progress = p.progress || {};
+      customMeta = p.customMeta || {};
+      cadernoAcertos = p.cadernoAcertos || [];
+      cadernoErros = p.cadernoErros || [];
+      historicoCiclos = p.historicoCiclos || [];
+      cicloAtualNum = p.cicloAtualNum || 1;
+      datasCiclo = p.datasCiclo || {};
+      temposTopicos = p.temposTopicos || {};
+    } else {
+      await salvarProgressoIndividualNaNuvem();
+    }
+
+    if(CURSO_ATUAL) {
+      carregarEdital();
+    }
+    saveStateLocallyOnly();
+    if(CURSO_ATUAL) renderTrail();
+    updateGlobalStats();
+    enviarPlacarParaRanking();
+  } catch (e) {
+    console.error("Erro ao sincronizar:", e);
+  }
+}
+
+async function salvarConteudoGlobalNaNuvem() {
+  let payload = { id: 'global', dados: { questoes: DB_QUESTOES_ALL, teoria: DB_TEORIA }, atualizado_em: new Date() };
+  await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify(payload)
+  });
+}
+
+async function salvarProgressoIndividualNaNuvem() {
+  if (!MEU_ID_USUARIO) return;
+  let payload = { 
+    usuario_id: MEU_ID_USUARIO, 
+    dados: { progress, customMeta, cadernoAcertos, cadernoErros, historicoCiclos, cicloAtualNum, datasCiclo, temposTopicos }, 
+    atualizado_em: new Date() 
+  };
+  await fetch(`${SUPABASE_URL}/rest/v1/app_progresso`, {
+    method: 'POST',
+    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify(payload)
+  });
+}
+
+async function enviarPlacarParaRanking() {
+  if (!MEU_ID_USUARIO) return;
+  let totaisFeitas = 0, totaisAcertos = 0;
+  
+  // Considera ambos os editais para o ranking geral da nuvem
+  let poolGeral = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  poolGeral.forEach(item => {
+    let stats = getTopicStats(item.id);
+    totaisFeitas += stats.feitas;
+    totaisAcertos += stats.acertos;
+  });
+  let pctGeral = totaisFeitas > 0 ? Math.round((totaisAcertos / totaisFeitas) * 100) : 0;
+
+  let payload = {
+    usuario_id: MEU_ID_USUARIO,
+    nome: localStorage.getItem('cbmpe_nome_usuario') || MEU_ID_USUARIO,
+    acertos: totaisAcertos,
+    feitas: totaisFeitas,
+    pct: pctGeral,
+    detalhes_topicos: { cadernoAcertos, cadernoErros, temposTopicos },
+    atualizado_em: new Date()
+  };
+
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/app_ranking`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'resolution=merge-duplicates'
+      },
+      body: JSON.stringify(payload)
+    });
+  } catch (e) {
+    console.error("Erro ao atualizar ranking:", e);
+  }
+}
+
+async function renderizarRankingOnline() {
+  let container = document.getElementById('content-ranking');
+  if(!container) return;
+  container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--ink-soft);">Carregando ranking ao vivo...</div>`;
+
+  let selectFiltro = document.getElementById('filtro-ranking-edital');
+  let editalFiltro = selectFiltro ? selectFiltro.value : 'GERAL';
+
+  try {
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/app_ranking?select=*`, {
+      method: 'GET',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    let lista = await res.json();
+
+    window._rankingCacheData = lista || [];
+
+    if(!lista || lista.length === 0) {
+      container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--ink-soft);">Nenhum usuário no ranking ainda.</div>`;
+      return;
+    }
+
+    let listaFiltrada = lista.map(item => {
+      let detalhes = item.detalhes_topicos || {};
+      let acertosArr = detalhes.cadernoAcertos || [];
+      let errosArr = detalhes.cadernoErros || [];
+
+      if (editalFiltro === 'GERAL') {
+        return item; 
+      }
+
+      let idsValidos = editalFiltro === 'CBMPE' 
+        ? Array.from({length: 69}, (_, i) => i + 1) 
+        : Array.from({length: 67}, (_, i) => i + 101).concat([67, 68, 69]);
+
+      let acertosFiltrados = acertosArr.filter(q => idsValidos.includes(q.topico_id));
+      let errosFiltrados = errosArr.filter(q => idsValidos.includes(q.topico_id));
+      
+      let totalFeitas = acertosFiltrados.length + errosFiltrados.length;
+      let totalAcertos = acertosFiltrados.length;
+      let pct = totalFeitas > 0 ? Math.round((totalAcertos / totalFeitas) * 100) : 0;
+
+      return {
+        ...item,
+        acertos: totalAcertos,
+        feitas: totalFeitas,
+        pct: pct
+      };
+    });
+
+    listaFiltrada.sort((a, b) => b.acertos - a.acertos || b.pct - a.pct);
+
+    let html = `
+      <div class="topic-card">
+        <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">Exibindo placar para: <b>${editalFiltro === 'GERAL' ? 'Todos os Editais (Geral)' : 'CFO ' + editalFiltro}</b>. Clique em qualquer usuário para ver detalhes.</p>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+    `;
+
+    listaFiltrada.forEach((item, index) => {
+      let medalha = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<b>#${index+1}</b>`));
+      let isEu = item.usuario_id === MEU_ID_USUARIO;
+      let bgCard = isEu ? 'var(--mnemo-bg)' : 'var(--card-bg2)';
+      let borderColor = isEu ? 'var(--brass)' : 'var(--line)';
+
+      html += `
+        <div onclick="abrirDetalhesUsuarioRanking('${item.usuario_id}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:${bgCard};border:1px solid ${borderColor};border-radius:8px;cursor:pointer;transition:transform .1s;" title="Clique para ver detalhes">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:18px;width:28px;text-align:center;">${medalha}</span>
+            <div>
+              <div style="font-weight:700;font-size:14.5px;color:var(--brass-2);">${item.nome} ${isEu ? '(Você)' : ''} 🔍</div>
+              <div style="font-size:11px;font-family:var(--mono);color:var(--ink-soft);">${item.feitas} questões respondidas</div>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-family:var(--serif);font-size:18px;font-weight:bold;color:var(--brass-2);">${item.acertos} acertos</div>
+            <div style="font-size:11.5px;font-family:var(--mono);color:var(--green);">${item.pct}% de aproveitamento</div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = `<div style="text-align:center;padding:20px;color:var(--red);">Erro ao carregar o ranking.</div>`;
+  }
+}
+
+function abrirDetalhesUsuarioRanking(usuarioId) {
+  let dadosUsuario = (window._rankingCacheData || []).find(u => u.usuario_id === usuarioId);
+  if(!dadosUsuario) return;
+
+  let detalhes = dadosUsuario.detalhes_topicos || {};
+  let acertosArr = detalhes.cadernoAcertos || [];
+  let errosArr = detalhes.cadernoErros || [];
+  let temposMap = detalhes.temposTopicos || {};
+
+  let topicosMap = {};
+  [...acertosArr, ...errosArr].forEach(q => {
+    let tId = q.topico_id;
+    if(!topicosMap[tId]) {
+      let ed = [...EDITAL_CBMPE, ...EDITAL_CBMGO].find(e => e.id === tId);
+      topicosMap[tId] = { nome: ed ? ed.topico : `Tópico #${tId}`, acertos: 0, erros: 0 };
+    }
+    let ehAcerto = acertosArr.some(a => a.id === q.id);
+    if(ehAcerto) topicosMap[tId].acertos++;
+    else topicosMap[tId].erros++;
+  });
+
+  let htmlConteudo = `<div style="font-size:13.5px;margin-bottom:12px;"><b>Aluno:</b> ${dadosUsuario.nome} | <b>Total de Acertos:</b> ${dadosUsuario.acertos} (${dadosUsuario.pct}%)</div>`;
+  
+  let chavesTopicos = Object.keys(topicosMap);
+  if(chavesTopicos.length === 0) {
+    htmlConteudo += `<div style="color:var(--ink-soft);text-align:center;padding:20px;">Nenhum tópico respondido registrado na nuvem ainda por este usuário.</div>`;
+  } else {
+    htmlConteudo += `<div style="display:flex;flex-direction:column;gap:10px;">`;
+    chavesTopicos.forEach(tId => {
+      let info = topicosMap[tId];
+      let totalFeitas = info.acertos + info.erros;
+      let pctTopico = totalFeitas > 0 ? Math.round((info.acertos / totalFeitas) * 100) : 0;
+      let tempoFormatado = formatarTempo(temposMap[tId] || 0);
+
+      htmlConteudo += `
+        <div style="background:var(--card-bg2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;">
+          <div style="font-weight:700;font-size:14px;color:var(--fg);margin-bottom:4px;">📌 ${info.nome}</div>
+          <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);flex-wrap:wrap;gap:6px;">
+            <span>🟢 Acertos: <b>${info.acertos}</b> | 🔴 Erros: <b>${info.erros}</b></span>
+            <span>🎯 Desempenho: <b style="color:var(--green);">${pctTopico}%</b></span>
+            <span>⏱️ Tempo Gasto: <b style="color:var(--brass-2);">${tempoFormatado}</b></span>
+          </div>
+        </div>
+      `;
+    });
+    htmlConteudo += `</div>`;
+  }
+
+  document.getElementById('rank-detalhes-titulo').innerText = `📊 Desempenho: ${dadosUsuario.nome}`;
+  document.getElementById('rank-detalhes-conteudo').innerHTML = htmlConteudo;
+  document.getElementById('modal-ranking-detalhes').style.display = 'flex';
+}
+
+function fecharModalRankingDetalhes() { document.getElementById('modal-ranking-detalhes').style.display = 'none'; }
+function formatarTempo(segundos) { let m = Math.floor(segundos / 60); let s = segundos % 60; return `${m}m ${s < 10 ? '0' : ''}${s}s`; }
+
+let _syncTimerGlobal = null;
+let _syncTimerIndiv = null;
+
+function saveState() {
+  saveStateLocallyOnly();
+
+  clearTimeout(_syncTimerGlobal);
+  _syncTimerGlobal = setTimeout(() => { salvarConteudoGlobalNaNuvem(); }, 1500);
+
+  clearTimeout(_syncTimerIndiv);
+  _syncTimerIndiv = setTimeout(() => { 
+    salvarProgressoIndividualNaNuvem(); 
+    enviarPlacarParaRanking();
+  }, 1500);
+}
+
+function saveStateLocallyOnly() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
+  localStorage.setItem(META_KEY, JSON.stringify(customMeta));
+  localStorage.setItem(CADERNO_ACERTOS_KEY, JSON.stringify(cadernoAcertos));
+  localStorage.setItem(CADERNO_ERROS_KEY, JSON.stringify(cadernoErros));
+  localStorage.setItem(Q_KEY, JSON.stringify(DB_QUESTOES_ALL));
+  localStorage.setItem(TEORIA_KEY, JSON.stringify(DB_TEORIA));
+  localStorage.setItem(CICLOS_KEY, JSON.stringify(historicoCiclos));
+  localStorage.setItem('cbmpe_ciclo_atual_num', cicloAtualNum);
+  localStorage.setItem(DATAS_CICLO_KEY, JSON.stringify(datasCiclo));
+  localStorage.setItem(TEMPOS_TOPICOS_KEY, JSON.stringify(temposTopicos));
+  
+  updateGlobalStats();
+  if (CURRENT_FILTER.type === 'dia' || CURRENT_FILTER.type === 'disc') renderFilteredTopics();
+  else if (CURRENT_FILTER.type === 'trilha' && CURSO_ATUAL) renderTrail();
+  else if (CURRENT_FILTER.type === 'materias') renderMateriasGrid();
+  else if (CURRENT_FILTER.type === 'revisao') renderRev();
+  else if (CURRENT_FILTER.type === 'relatorio') renderRel();
+  else if (CURRENT_FILTER.type === 'cadernos') renderCadernoTab(currentCadernoTab);
+  else if (CURRENT_FILTER.type === 'ranking') renderizarRankingOnline();
+}
+
+function carregarDadosPerfil() {
+  document.getElementById('input-meu-nome').value = localStorage.getItem('cbmpe_nome_usuario') || '';
+  document.getElementById('input-meu-id').value = MEU_ID_USUARIO;
+}
+
+function salvarPerfilUsuario() {
+  let novoNome = document.getElementById('input-meu-nome').value.trim();
+  let novoId = document.getElementById('input-meu-id').value.trim().toLowerCase().replace(/\s+/g, '_');
+  if(!novoNome || !novoId) { alert("Preencha todos os campos!"); return; }
+
+  localStorage.setItem('cbmpe_nome_usuario', novoNome);
+  MEU_ID_USUARIO = novoId;
+  localStorage.setItem('cbmpe_meu_id', MEU_ID_USUARIO);
+
+  alert("✅ Perfil salvo com sucesso!");
+  baixarDadosDaNuvem();
+  showMainView('trilha');
+}
+
+function salvarConfigInicial() {
+  let nome = document.getElementById('setup-input-nome').value.trim();
+  let id = document.getElementById('setup-input-id').value.trim().toLowerCase().replace(/\s+/g, '_');
+  if(!nome || !id) { alert("Por favor, preencha o seu nome e o ID único."); return; }
+
+  localStorage.setItem('cbmpe_nome_usuario', nome);
+  localStorage.setItem('cbmpe_meu_id', id);
+  MEU_ID_USUARIO = id;
+
+  document.getElementById('modal-login-inicial').style.display = 'none';
+  baixarDadosDaNuvem();
+}
+
+function verificarPrimeiroAcesso() {
+  if (!MEU_ID_USUARIO) {
+    document.getElementById('modal-login-inicial').style.display = 'flex';
+  } else {
+    baixarDadosDaNuvem();
+  }
+}
+
+function isQuestionArchived(qId) {
+  return cadernoAcertos.some(x => x.id === qId) || cadernoErros.some(x => x.id === qId);
+}
+
+function updateGlobalStats() {
+  let totFeitas = 0, totAcertos = 0, totConc = 0, totTopicos = 0;
+  let poolGeral = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  
+  poolGeral.forEach(item => {
+    if (item.dia <= 6) {
+      totTopicos++;
+      let stats = getTopicStats(item.id);
+      totFeitas += stats.feitas;
+      totAcertos += stats.acertos;
+      if (stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta)) totConc++;
+    }
+  });
+  document.getElementById('hub-pct').innerText = (totFeitas > 0 ? Math.round((totAcertos / totFeitas) * 100) : 0) + '%';
+  document.getElementById('hub-feitas').innerText = totFeitas;
+  document.getElementById('hub-topicos').innerText = `${totConc}/${totTopicos}`;
+}
+
+function hideAllViews() {
+  if(document.getElementById('view-quiz') && document.getElementById('view-quiz').style.display === 'block') {
+    if(quizTimerInterval) clearInterval(quizTimerInterval);
+    if(quizTopicoIdAtual && quizTimerSeconds > 0) {
+      temposTopicos[quizTopicoIdAtual] = (temposTopicos[quizTopicoIdAtual] || 0) + quizTimerSeconds;
+      quizTimerSeconds = 0;
+      saveState();
+    }
+  }
+
+  ['view-trilha','view-materias','view-cadernos','view-topicos','view-backup','view-revisao','view-simulado','view-ranking','view-perfil','view-relatorio','view-quiz'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('content-topicos').innerHTML = '';
+}
+
+function showMainView(viewName) {
+  hideAllViews();
+  document.querySelectorAll('.nav-group .tab-btn').forEach(b => b.classList.remove('active'));
+  const navBtn = document.getElementById('nav-' + viewName);
+  if (navBtn) navBtn.classList.add('active');
+
+  CURRENT_FILTER = { type: viewName, val: null };
+  updateGlobalStats();
+
+  if (viewName === 'trilha') { 
+    document.getElementById('view-trilha').style.display = 'block'; 
+    if(!CURSO_ATUAL) {
+      document.getElementById('trilha-seletor-container').style.display = 'block';
+      document.getElementById('trilha-conteudo-container').style.display = 'none';
+    } else {
+      document.getElementById('trilha-seletor-container').style.display = 'none';
+      document.getElementById('trilha-conteudo-container').style.display = 'block';
+      carregarEdital();
+      renderTrail(); 
+    }
+  }
+  else if (viewName === 'materias') { document.getElementById('view-materias').style.display = 'block'; renderMateriasGrid(); }
+  else if (viewName === 'cadernos') { document.getElementById('view-cadernos').style.display = 'block'; renderCadernoTab('acertos'); }
+  else if (viewName === 'backup') { document.getElementById('view-backup').style.display = 'block'; }
+  else if (viewName === 'revisao') { document.getElementById('view-revisao').style.display = 'block'; renderRev(); }
+  else if (viewName === 'simulado') { document.getElementById('view-simulado').style.display = 'block'; initSimuladoSetup(); }
+  else if (viewName === 'ranking') { document.getElementById('view-ranking').style.display = 'block'; renderizarRankingOnline(); }
+  else if (viewName === 'perfil') { document.getElementById('view-perfil').style.display = 'block'; carregarDadosPerfil(); }
+  else if (viewName === 'relatorio') { document.getElementById('view-relatorio').style.display = 'block'; renderRel(); }
+  window.scrollTo(0, 0);
+}
+
+function importarBancoCompleto() {
+  let raw = document.getElementById('adm-db-json').value.trim();
+  if(!raw) { alert("Nenhum dado encontrado para importar!"); return; }
+  try {
+    raw = raw.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/, '').trim();
+    let parsed = JSON.parse(raw);
+    if(!parsed.teoria || !parsed.questoes) throw new Error("O JSON precisa conter 'teoria' e 'questoes'.");
+    DB_TEORIA = parsed.teoria;
+    DB_QUESTOES_ALL = parsed.questoes;
+    saveState();
+    alert(`✅ Conteúdo global importado com sucesso!`);
+  } catch(e) {
+    alert("❌ Erro ao processar os dados:\n" + e.message);
+  }
+}
+
+function inicializarDatasCicloSeNecessario() {
+  let hojeStr = new Date().toISOString().split('T')[0];
+  if(!datasCiclo[1]) datasCiclo[1] = hojeStr;
+  let d1 = new Date(datasCiclo[1] + 'T00:00:00');
+  for(let i=2; i<=7; i++) {
+    if(!datasCiclo[i]) {
+      let nextD = new Date(d1);
+      nextD.setDate(d1.getDate() + (i - 1));
+      datasCiclo[i] = nextD.toISOString().split('T')[0];
+    }
+  }
+}
+
+function alterarDataInicio(novaDataStr) {
+  if(!novaDataStr) return;
+  datasCiclo[1] = novaDataStr;
+  let d1 = new Date(novaDataStr + 'T00:00:00');
+  for(let i=2; i<=7; i++) {
+    let nextD = new Date(d1);
+    nextD.setDate(d1.getDate() + (i - 1));
+    datasCiclo[i] = nextD.toISOString().split('T')[0];
+  }
+  saveState();
+}
+
+function alterarDataDiaManual(diaNum, novaDataStr) {
+  if(!novaDataStr) return;
+  datasCiclo[diaNum] = novaDataStr;
+  saveState();
+}
+
+function encerrarCicloAtual() {
+  if(confirm("Deseja encerrar o ciclo atual? Suas estatísticas serão salvas no relatório e as questões voltarão para a trilha!")) {
+    let totFeitas = 0, totAcertos = 0;
+    EDITAL_ALL.forEach(item => {
+      let stats = getTopicStats(item.id);
+      totFeitas += stats.feitas;
+      totAcertos += stats.acertos;
+    });
+    let pctAcerto = totFeitas > 0 ? Math.round((totAcertos / totFeitas) * 100) : 0;
+    
+    historicoCiclos.push({
+      ciclo: cicloAtualNum,
+      dataInicio: datasCiclo[1] ? datasCiclo[1].split('-').reverse().join('/') : '-',
+      dataFim: new Date().toLocaleDateString('pt-BR'),
+      feitas: totFeitas,
+      acertos: totAcertos,
+      erros: totFeitas - totAcertos,
+      pct: pctAcerto
+    });
+
+    cadernoAcertos = [];
+    cadernoErros = [];
+    cicloAtualNum++;
+    progress = {};
+    datasCiclo = {};
+    inicializarDatasCicloSeNecessario();
+    saveState();
+    alert("🏁 Ciclo encerrado com sucesso!");
+  }
+}
+
+function renderTrail() {
+  if(!CURSO_ATUAL) return;
+  inicializarDatasCicloSeNecessario();
+  document.getElementById('lbl-ciclo-atual').innerText = `Ciclo Atual (#${cicloAtualNum})`;
+  document.getElementById('input-data-inicio').value = datasCiclo[1] || '';
+
+  let html = '';
+  let foundCurrent = false;
+  for (let d = 1; d <= 7; d++) {
+    let items = EDITAL_ALL.filter(x => x.dia === d);
+    let concluidos = items.filter(x => {
+      let stats = getTopicStats(x.id);
+      return stats.feitas > 0 && (x.meta === 0 || stats.feitas >= x.meta);
+    }).length;
+    let isDone = concluidos === items.length && items.length > 0;
+    let isCurrent = !isDone && !foundCurrent;
+    if (isCurrent) foundCurrent = true;
+    let pctProg = items.length > 0 ? Math.round((concluidos / items.length) * 100) : 0;
+    let stateCls = isDone ? 'done' : (isCurrent ? 'current' : '');
+    
+    let badgeHtml = isDone
+      ? `<span class="done-badge">✓ CONCLUÍDO (${concluidos}/${items.length})</span>`
+      : (isCurrent ? `<span class="focus-badge">🔥 FOCO ATUAL (${concluidos}/${items.length})</span>` : `<span class="disc-badge">${concluidos}/${items.length} missões</span>`);
+    
+    let chipsHtml = items.map(it => {
+      let stats = getTopicStats(it.id);
+      let ok = stats.feitas > 0 && (it.meta === 0 || stats.feitas >= it.meta);
+      return `<span class="trail-chip ${ok ? 'ok' : ''}">${ok ? '✓ ' : ''}${it.disc}</span>`;
+    }).join('');
+
+    let dataDiaVal = datasCiclo[d] || '';
+
+    html += `
+    <div class="trail-node ${stateCls}">
+      <div class="trail-dot">${isDone ? '✓' : 'D' + d}</div>
+      <div class="trail-card" onclick="openDay(${d})">
+        <div class="trail-top">
+          <div class="trail-day-title">${DAY_TITLES[d]}</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <div onclick="event.stopPropagation();" style="display:flex;align-items:center;gap:4px;font-size:11.5px;font-family:var(--mono);">
+              <span>📅 Data:</span>
+              <input type="date" value="${dataDiaVal}" class="form-control" style="padding:2px 6px;font-size:11.5px;width:130px;" onchange="alterarDataDiaManual(${d}, this.value)">
+            </div>
+            ${badgeHtml}
+          </div>
+        </div>
+        <div class="bar-bg"><div class="bar-fill" style="width:${pctProg}%;"></div></div>
+        <div class="trail-chips">${chipsHtml}</div>
+        <div class="trail-footer">
+          <span style="font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);">Progresso: ${pctProg}%</span>
+          <button class="trail-btn" onclick="event.stopPropagation(); openDay(${d});">
+            ${isCurrent ? '🚀 Iniciar Dia ' + d : 'Abrir Dia ' + d + ' →'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+  document.getElementById('trail-list').innerHTML = html;
+}
+
+function renderMateriasGrid() {
+  let pool = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let html = '';
+  SUBJECTS_META.forEach(s => {
+    let items = pool.filter(x => x.disc === s.disc);
+    if(items.length === 0) return; 
+    
+    let feitas = 0, acertos = 0, conc = 0;
+    items.forEach(item => {
+      let stats = getTopicStats(item.id);
+      feitas += stats.feitas; 
+      acertos += stats.acertos;
+      if (stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta)) conc++;
+    });
+    let pctAcerto = feitas > 0 ? Math.round((acertos / feitas) * 100) : 0;
+    let pctProg = items.length > 0 ? Math.round((conc / items.length) * 100) : 0;
+    html += `
+    <div class="disc-card" onclick="openDiscipline('${s.disc}')">
+      <div class="disc-top">
+        <span class="disc-name">${s.icon} ${s.label}</span>
+        <span class="disc-badge">${conc}/${items.length} ok</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" style="width:${pctProg}%;"></div></div>
+      <div class="disc-meta">
+        <span>📝 ${feitas} feitas</span>
+        <span>🎯 ${pctAcerto}% acerto</span>
+      </div>
+    </div>`;
+  });
+  document.getElementById('hub-disciplinas').innerHTML = html;
+}
+
+let currentCadernoTab = 'acertos';
+let cadernoAnswers = {};
+
+function popularFiltrosCaderno(listaAtual) {
+  let selectMat = document.getElementById('filtro-caderno-materia');
+  let selectTop = document.getElementById('filtro-caderno-topico');
+  let selectBanca = document.getElementById('filtro-caderno-banca');
+  if(!selectMat || !selectTop || !selectBanca) return;
+
+  let materiaSelecionadaAntes = selectMat.value;
+  let topicoSelecionadoAntes = selectTop.value;
+  let bancaSelecionadaAntes = selectBanca.value;
+
+  // Preenche Matérias
+  let materiasUnicas = [...new Set(listaAtual.map(q => q.materia))].filter(Boolean);
+  selectMat.innerHTML = `<option value="">Todas</option>` + 
+    materiasUnicas.map(m => `<option value="${m}" ${m === materiaSelecionadaAntes ? 'selected' : ''}>${m}</option>`).join('');
+
+  // Preenche Bancas
+  let bancasUnicas = [...new Set(listaAtual.map(q => q.banca))].filter(Boolean);
+  selectBanca.innerHTML = `<option value="">Todas</option>` + 
+    bancasUnicas.map(bancaVal => `<option value="${bancaVal}" ${bancaVal === bancaSelecionadaAntes ? 'selected' : ''}>${bancaVal}</option>`).join('');
+
+  atualizarFiltroTopicosCaderno(true);
+  
+  if(topicoSelecionadoAntes) {
+    selectTop.value = topicoSelecionadoAntes;
+  }
+}
+function atualizarFiltroTopicosCaderno(manterValor) {
+  let selectMat = document.getElementById('filtro-caderno-materia');
+  let selectTop = document.getElementById('filtro-caderno-topico');
+  if(!selectMat || !selectTop) return;
+
+  let matFiltro = selectMat.value;
+  let lista = currentCadernoTab === 'acertos' ? cadernoAcertos : cadernoErros;
+
+  let itensFiltradosPorMat = matFiltro ? lista.filter(q => q.materia === matFiltro) : lista;
+  let topicosUnicosIds = [...new Set(itensFiltradosPorMat.map(q => q.topico_id))].filter(Boolean);
+
+  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let htmlTopicos = `<option value="">Todos os Subtópicos</option>`;
+  topicosUnicosIds.forEach(tId => {
+    let ed = poolEd.find(e => e.id === tId);
+    let nomeTopico = ed ? ed.topico : `Tópico #${tId}`;
+    htmlTopicos += `<option value="${tId}">${nomeTopico}</option>`;
+  });
+
+  selectTop.innerHTML = htmlTopicos;
+  if(!manterValor) selectTop.value = "";
+  renderCadernoTab(currentCadernoTab);
+}
+
+function renderCadernoTab(tipo) {
+  currentCadernoTab = tipo;
+  let lista = tipo === 'acertos' ? cadernoAcertos : cadernoErros;
+
+  let btnAcertos = document.getElementById('btn-tab-acertos');
+  let btnErros = document.getElementById('btn-tab-erros');
+  if(btnAcertos && btnErros) {
+    if(tipo === 'acertos') {
+      btnAcertos.className = "btn btn-primary";
+      btnErros.className = "btn";
+      btnErros.style.background = "var(--card-bg2)";
+      btnErros.style.color = "var(--fg)";
+    } else {
+      btnErros.className = "btn btn-danger";
+      btnAcertos.className = "btn";
+      btnAcertos.style.background = "var(--card-bg2)";
+      btnErros.style.color = "var(--fg)";
+    }
+  }
+
+  let selMatEl = document.getElementById('filtro-caderno-materia');
+  if(!selMatEl || selMatEl.options.length <= 1) {
+    popularFiltrosCaderno(lista);
+  }
+
+  let matFiltro = document.getElementById('filtro-caderno-materia').value;
+  let topicoFiltro = document.getElementById('filtro-caderno-topico').value;
+  let nivelFiltro = document.getElementById('filtro-caderno-nivel').value;
+  let bancaFiltro = document.getElementById('filtro-caderno-banca').value;
+  let motivoFiltro = document.getElementById('filtro-caderno-motivo').value;
+
+  let listaFiltrada = lista.filter(q => {
+    let matchMat = !matFiltro || q.materia === matFiltro;
+    let matchTop = !topicoFiltro || String(q.topico_id) === String(topicoFiltro);
+    let matchNivel = !nivelFiltro || String(q.nivel) === String(nivelFiltro);
+    let matchBanca = !bancaFiltro || q.banca === bancaFiltro;
+    let matchMotivo = !motivoFiltro || q.motivo === motivoFiltro;
+    return matchMat && matchTop && matchNivel && matchBanca && matchMotivo;
+  });
+
+  let html = '';
+  
+  if(listaFiltrada.length === 0) {
+    html = `<div style="text-align:center;padding:30px;color:var(--ink-soft);">Nenhuma questão encontrada com os filtros selecionados no ${tipo === 'acertos' ? 'Caderno de Acertos' : 'Caderno de Erros'}.</div>`;
+  } else {
+    let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+    html = listaFiltrada.map((item) => {
+      let motivoSelector = '';
+      if(tipo === 'acertos') {
+        motivoSelector = `
+          <select class="pill" style="background:var(--navy);color:#fff;border:1px solid var(--brass);cursor:pointer;font-weight:bold;" onchange="mudarMotivoCaderno('acertos', ${item.id}, this.value)">
+            <option value="sabia" ${item.motivo==='sabia'?'selected':''}>🟢 Sabia perfeitamente</option>
+            <option value="parcial" ${item.motivo==='parcial'?'selected':''}>🟡 Noção parcial</option>
+            <option value="chute" ${item.motivo==='chute'?'selected':''}>🟠 Chute cego</option>
+            <option value="ajuda" ${item.motivo==='ajuda'?'selected':''}>💡 Fiz com Ajuda</option>
+          </select>`;
+      } else {
+        let vezes = item.tentativasErros || 1;
+        motivoSelector = `
+          <select class="pill" style="background:var(--red);color:#fff;border:1px solid var(--line);cursor:pointer;font-weight:bold;" onchange="mudarMotivoCaderno('erros', ${item.id}, this.value)">
+            <option value="dificil" ${item.motivo==='dificil'?'selected':''}>🔴 Tava muito difícil</option>
+            <option value="detalhe" ${item.motivo==='detalhe'?'selected':''}>⚠️ Errei por detalhe / desatenção</option>
+            <option value="ajuda" ${item.motivo==='ajuda'?'selected':''}>💡 Precisei de Ajuda</option>
+          </select>
+          <span class="pill" style="background:var(--card-bg2);color:var(--ink-soft);">Erros: ${vezes}x</span>`;
+      }
+
+      let keyAns = `${tipo}_${item.id}`;
+      let ans = cadernoAnswers[keyAns];
+      let LETTERS = ['A','B','C','D','E'];
+
+      let optsHtml = item.opts.map((opt, i) => {
+        let cls = 'opt-btn';
+        if(ans && ans.selected !== undefined) {
+          if(i === item.correct) cls += ' correct';
+          else if(i === ans.selected) cls += ' wrong';
+          else cls += ' dim';
+        }
+        return `<div class="opt-row"><button class="${cls}" onclick="responderQuestaoCaderno('${tipo}', ${item.id}, ${i})"><span class="opt-letter">${LETTERS[i]}</span>${opt}</button></div>`;
+      }).join('');
+
+      let feedbackBox = '';
+      let retryBtn = '';
+      if(ans && ans.selected !== undefined) {
+        feedbackBox = `
+          <div class="${ans.correct ? 'stamp ok' : 'stamp no'}">${ans.correct ? 'CORRETO' : 'INCORRETO'}</div>
+          <div class="expl-box"><b style="font-family:var(--mono);font-size:11px;color:var(--brass);display:block;margin-bottom:6px;">COMENTÁRIO</b>${item.expl}</div>
+        `;
+        retryBtn = `<button class="btn" style="margin-top:10px;background:var(--card-bg2);color:var(--brass);border-color:var(--brass);" onclick="tentarNovamenteCaderno('${tipo}', ${item.id})">🔄 Tentar Novamente</button>`;
+      }
+
+      let edTop = poolEd.find(e => e.id === item.topico_id);
+      let nomeSubTopico = edTop ? edTop.topico : 'Subtópico Geral';
+
+      return `
+      <div class="topic-card">
+        <div class="q-meta-top">
+          <span class="pill pill-disc">${item.materia || 'Geral'}</span>
+          <span class="pill" style="background:var(--card-bg2);color:var(--brass-2);border-color:var(--brass);">${nomeSubTopico}</span>
+          <span class="pill">${item.banca || 'AOCP'}</span>
+          <span class="pill pill-nivel-${item.nivel || 2}">Nível ${item.nivel || 2}</span>
+          ${motivoSelector}
+          <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn" style="padding:2px 8px;font-size:11px;background:var(--card-bg2);color:var(--brass);border-color:var(--brass);" onclick="abrirModalEditarQuestaoId(${item.id})">✏️ Editar</button>
+            <button class="btn btn-primary" style="padding:2px 8px;font-size:11px;background:var(--brass);border-color:var(--brass);" onclick="resetarParaTrilha('${tipo}', ${item.id})">🔄 p/ Trilha</button>
+            <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;" onclick="removerDoCaderno('${tipo}', ${item.id})">🗑️ Excluir</button>
+          </div>
+        </div>
+        <p class="q-text">${item.q}</p>
+        ${optsHtml}
+        ${feedbackBox}
+        ${retryBtn}
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('content-cadernos').innerHTML = html;
+  renderizarMatematica();
+}
+
+function mudarMotivoCaderno(tipo, qId, novoMotivo) {
+  let lista = tipo === 'acertos' ? cadernoAcertos : cadernoErros;
+  let item = lista.find(x => x.id === qId);
+  if(item) {
+    item.motivo = novoMotivo;
+    saveState();
+  }
+}
+
+function responderQuestaoCaderno(tipo, qId, optIdx) {
+  let keyAns = `${tipo}_${qId}`;
+  if(cadernoAnswers[keyAns] && cadernoAnswers[keyAns].selected !== undefined) return;
+
+  let lista = tipo === 'acertos' ? cadernoAcertos : cadernoErros;
+  let item = lista.find(x => x.id === qId);
+  if(!item) return;
+  let correct = (optIdx === item.correct);
+
+  cadernoAnswers[keyAns] = { selected: optIdx, correct: correct };
+
+  if(tipo === 'erros') {
+    if(correct) {
+      let index = lista.findIndex(x => x.id === qId);
+      if(index !== -1) lista.splice(index, 1);
+      item.motivo = 'sabia';
+      cadernoAcertos.unshift(item);
+    } else {
+      item.tentativasErros = (item.tentativasErros || 1) + 1;
+    }
+  }
+  saveState();
+  renderCadernoTab(currentCadernoTab);
+}
+
+function tentarNovamenteCaderno(tipo, qId) {
+  let keyAns = `${tipo}_${qId}`;
+  delete cadernoAnswers[keyAns];
+  renderCadernoTab(currentCadernoTab);
+}
+
+function resetarParaTrilha(tipo, qId) {
+  if(confirm("Deseja enviar esta questão de volta para a trilha?")) {
+    let lista = tipo === 'acertos' ? cadernoAcertos : cadernoErros;
+    let index = lista.findIndex(x => x.id === qId);
+    if(index !== -1) {
+      lista.splice(index, 1);
+    }
+    delete quizAnswers[qId];
+    delete cadernoAnswers[`acertos_${qId}`];
+    delete cadernoAnswers[`erros_${qId}`];
+    
+    saveState();
+    renderCadernoTab(currentCadernoTab);
+  }
+}
+
+function removerDoCaderno(tipo, qId) {
+  if(confirm("Deseja excluir permanentemente?")) {
+    let lista = tipo === 'acertos' ? cadernoAcertos : cadernoErros;
+    let index = lista.findIndex(x => x.id === qId);
+    if(index !== -1) {
+      lista.splice(index, 1);
+    }
+    delete quizAnswers[qId];
+    delete cadernoAnswers[`acertos_${qId}`];
+    delete cadernoAnswers[`erros_${qId}`];
+    saveState();
+    renderCadernoTab(tipo);
+  }
+}
+
+function popularSelectsEdicao() {
+  let selMat = document.getElementById('edit-q-materia');
+  selMat.innerHTML = SUBJECTS_META.map(s => `<option value="${s.disc}">${s.disc}</option>`).join('');
+
+  let bancasUnicas = new Set(["AOCP", "IA"]);
+  DB_QUESTOES_ALL.forEach(q => { if(q.banca) bancasUnicas.add(q.banca); });
+
+  let selBanca = document.getElementById('edit-q-banca');
+  let htmlBancas = '';
+  bancasUnicas.forEach(b => { htmlBancas += `<option value="${b}">${b}</option>`; });
+  htmlBancas += `<option value="custom">➕ Outra...</option>`;
+  selBanca.innerHTML = htmlBancas;
+}
+
+function checarNovaBanca(selectEl) {
+  let customInput = document.getElementById('edit-q-banca-custom');
+  if(selectEl.value === 'custom') {
+    customInput.style.display = 'block';
+    customInput.focus();
+  } else {
+    customInput.style.display = 'none';
+    customInput.value = '';
+  }
+}
+
+function abrirModalEditarQuestaoId(qId) {
+  // 1. Procura primeiro na lista ativa do Quiz, depois nos Cadernos locais
+  let q = (typeof quizList !== 'undefined' ? quizList.find(x => x.id === qId) : null)
+       || cadernoAcertos.find(x => x.id === qId) 
+       || cadernoErros.find(x => x.id === qId);
+
+  if (!q) { 
+    alert("Questão não encontrada!"); 
+    return; 
+  }
+
+  popularSelectsEdicao();
+  document.getElementById('edit-q-id').value = q.id;
+  document.getElementById('edit-q-materia').value = q.materia || SUBJECTS_META[0].disc;
+  document.getElementById('edit-q-nivel').value = q.nivel || 2;
+  document.getElementById('edit-q-correct').value = q.correct !== undefined ? q.correct : 0;
+  document.getElementById('edit-q-texto').value = q.q || '';
+  document.getElementById('edit-q-opt0').value = q.opts?.[0] || '';
+  document.getElementById('edit-q-opt1').value = q.opts?.[1] || '';
+  document.getElementById('edit-q-opt2').value = q.opts?.[2] || '';
+  document.getElementById('edit-q-opt3').value = q.opts?.[3] || '';
+  document.getElementById('edit-q-opt4').value = q.opts?.[4] || '';
+  document.getElementById('edit-q-expl').value = q.expl || '';
+
+  document.getElementById('modal-editar-questao').style.display = 'flex';
+}
+function fecharModalEditarQuestao() { document.getElementById('modal-editar-questao').style.display = 'none'; }
+
+async function salvarQuestaoEditada() {
+  let qId = parseInt(document.getElementById('edit-q-id').value);
+  let materia = document.getElementById('edit-q-materia').value;
+  let selBanca = document.getElementById('edit-q-banca').value;
+  let banca = selBanca === 'custom' ? document.getElementById('edit-q-banca-custom').value.trim() : selBanca;
+  let nivel = parseInt(document.getElementById('edit-q-nivel').value) || 2;
+  let correct = parseInt(document.getElementById('edit-q-correct').value) || 0;
+  let texto = document.getElementById('edit-q-texto').value;
+  let expl = document.getElementById('edit-q-expl').value;
+  let opts = [
+    document.getElementById('edit-q-opt0').value,
+    document.getElementById('edit-q-opt1').value,
+    document.getElementById('edit-q-opt2').value,
+    document.getElementById('edit-q-opt3').value,
+    document.getElementById('edit-q-opt4').value
+  ];
+
+  let qDataUpdate = {
+    materia: materia,
+    banca: banca || "AOCP",
+    nivel: nivel,
+    gabarito: correct,
+    enunciado: texto,
+    explicacao: expl,
+    alternativas: opts
+  };
+
+  try {
+    // 1. Atualiza no Supabase
+    await fetch(`${SUPABASE_URL}/rest/v1/questoes?id=eq.${qId}`, {
+      method: 'PATCH',
+      headers: { 
+        'apikey': SUPABASE_ANON_KEY, 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(qDataUpdate)
+    });
+
+    // 2. Atualiza os dados em memória (Quiz e Cadernos) sem precisar deslogar ou recarregar a página
+    if (typeof quizList !== 'undefined') {
+      let itemQuiz = quizList.find(x => x.id === qId);
+      if (itemQuiz) {
+        itemQuiz.materia = materia;
+        itemQuiz.banca = banca || "AOCP";
+        itemQuiz.nivel = nivel;
+        itemQuiz.correct = correct;
+        itemQuiz.q = texto;
+        itemQuiz.expl = expl;
+        itemQuiz.opts = opts;
+      }
+    }
+
+    [cadernoAcertos, cadernoErros].forEach(lista => {
+      let itemLocal = lista.find(x => x.id === qId);
+      if (itemLocal) {
+        itemLocal.materia = materia;
+        itemLocal.banca = banca || "AOCP";
+        itemLocal.nivel = nivel;
+        itemLocal.correct = correct;
+        itemLocal.q = texto;
+        itemLocal.expl = expl;
+        itemLocal.opts = opts;
+      }
+    });
+
+    saveState();
+    fecharModalEditarQuestao();
+    alert("✅ Questão atualizada com sucesso!");
+
+    // 3. Atualiza a tela em que você estiver
+    if (document.getElementById('view-quiz').style.display === 'block') {
+      renderQuizView();
+    } else if (document.getElementById('view-cadernos').style.display === 'block') {
+      renderCadernoTab(currentCadernoTab);
+    }
+  } catch(e) {
+    alert("Erro ao salvar alterações da questão.");
+  }
+}
+function openDay(diaNum) {
+  hideAllViews();
+  CURRENT_FILTER = { type: 'dia', val: diaNum };
+  document.getElementById('view-topicos').style.display = 'block';
+  document.getElementById('btn-voltar-lista').innerText = '⬅ Voltar para a Trilha';
+  document.getElementById('btn-voltar-lista').onclick = () => showMainView('trilha');
+  document.getElementById('lista-titulo').innerText = `${DAY_TITLES[diaNum]}`;
+  renderFilteredTopics();
+  window.scrollTo(0, 0);
+}
+
+function openDiscipline(discName) {
+  hideAllViews();
+  CURRENT_FILTER = { type: 'disc', val: discName };
+  document.getElementById('view-topicos').style.display = 'block';
+  document.getElementById('btn-voltar-lista').innerText = '⬅ Voltar para Matérias';
+  document.getElementById('btn-voltar-lista').onclick = () => showMainView('materias');
+  const metaObj = SUBJECTS_META.find(x => x.disc === discName);
+  document.getElementById('lista-titulo').innerText = metaObj ? `${metaObj.icon} ${metaObj.label}` : discName;
+  renderFilteredTopics();
+  window.scrollTo(0, 0);
+}
+
+function renderFilteredTopics() {
+  let items = CURRENT_FILTER.type === 'dia'
+    ? EDITAL_ALL.filter(x => x.dia === CURRENT_FILTER.val)
+    : EDITAL_ALL.filter(x => x.disc === CURRENT_FILTER.val);
+  document.getElementById('content-topicos').innerHTML = items.map(item => createCard(item)).join('');
+renderizarMatematica();
+}
+
+
+function toggleTeoria(id) {
+  const el = document.getElementById('teoria-' + id);
+  if (el) el.classList.toggle('open');
+}
+
+function resetTopic(id) {
+  if(confirm("Deseja zerar o progresso deste tópico?")) {
+    progress[id] = { revisar: false, note: "" };
+    cadernoAcertos = cadernoAcertos.filter(q => q.topico_id !== id);
+    cadernoErros = cadernoErros.filter(q => q.topico_id !== id);
+    delete temposTopicos[id];
+    saveState();
+  }
+}
+
+function createCard(item) {
+  let stats = getTopicStats(item.id);
+  let p = getP(item.id);
+  let status = stats.feitas > 0 ? ((item.meta === 0 || stats.feitas >= item.meta) ? 'Concluído' : 'Andamento') : 'Pendente';
+  let pctColor = stats.feitas === 0 ? 'var(--ink-soft)' : (stats.pct >= 80 ? 'var(--green)' : (stats.pct >= 60 ? 'var(--brass)' : 'var(--red)'));
+  let statusCls = status === 'Pendente' ? 'status-pend' : (status === 'Concluído' ? 'status-and' : 'status-and');
+  
+let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let idsValidosRes = [item.id];
+  if (item.equivalente_id) {
+    idsValidosRes = poolEd.filter(e => e.equivalente_id === item.equivalente_id).map(e => e.id);
+  }
+let labelBtnQuestao = "📝 Questões";
+let teoriaHtml = DB_TEORIA[item.id] || `<h4>📖 Nenhum resumo cadastrado</h4><p>Clique em Editar Resumo para adicionar.</p>`;
+  let tempoGastoStr = temposTopicos[item.id] ? `<span class="pill" style="background:var(--card-bg2);color:var(--brass-2);">⏱️ ${formatarTempo(temposTopicos[item.id])}</span>` : '';
+// Dispara a contagem leve em segundo plano para não travar a tela
+setTimeout(() => atualizarContadorQuestoesCard(item.id, `btn-q-${item.id}`), 50);
+  return `
+  <div class="topic-card">
+    <div class="topic-head">
+      <span class="pill pill-disc">ID #${item.id} • ${item.disc} (Dia ${item.dia})</span>
+      <div style="display:flex;gap:6px;align-items:center;">
+        ${tempoGastoStr}
+        <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;margin:0;" onclick="resetTopic(${item.id})">🔄 Resetar</button>
+        <span class="pill ${statusCls}">${status}</span>
+      </div>
+    </div>
+    <div class="topic-title">${item.topico}</div>
+    <div class="action-row">
+      <button class="action-btn btn-teoria" onclick="toggleTeoria(${item.id})">📖 Ver Resumo</button>
+      <button class="action-btn" style="background:var(--card-bg2);color:var(--brass);border-color:var(--brass);" onclick="abrirModalResumo(${item.id})">✏️ Editar Resumo</button>
+<button class="action-btn btn-questoes" id="btn-q-${item.id}" onclick="openQuiz(${item.id})">📝 Questões (...)</button>      <button class="action-btn btn-importar" onclick="abrirModalImportar(${item.id})">📥 Importar JSON</button>
+    </div>
+    <div class="teoria-box" id="teoria-${item.id}">${teoriaHtml}</div>
+    <div class="topic-controls">
+      <div class="ctrl-group"><label>Meta</label><input type="number" class="num-input" value="${item.meta}" onchange="updateMeta(${item.id}, this.value)"></div>
+      <div class="ctrl-group"><label>Feitas</label><div class="ctrl-val">${stats.feitas}</div></div>
+      <div class="ctrl-group"><label>Acertos</label><div class="ctrl-val">${stats.acertos}</div></div>
+      <div class="ctrl-group"><label>% Acerto</label><div class="ctrl-val" style="color:${pctColor};">${stats.pct}%</div></div>
+    </div>
+    <div class="topic-footer">
+      <label class="check-rev ${p.revisar ? '' : 'off'}"><input type="checkbox" ${p.revisar ? 'checked' : ''} onchange="toggleR(${item.id})"> ⚠️ Precisa Revisar</label>
+      <input type="text" placeholder="Anotações..." value="${p.note||''}" onchange="updateNote(${item.id}, this.value)" style="flex:1;margin-left:10px;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--bg);color:var(--fg);font-size:12px;">
+    </div>
+  </div>`;
+}
+
+function abrirModalResumo(id) {
+  document.getElementById('edit-res-id').value = id;
+  document.getElementById('edit-res-texto').value = DB_TEORIA[id] || '';
+  document.getElementById('modal-resumo').style.display = 'flex';
+}
+function fecharModalResumo() { document.getElementById('modal-resumo').style.display = 'none'; }
+function salvarResumoDireto() {
+  let id = document.getElementById('edit-res-id').value;
+  let texto = document.getElementById('edit-res-texto').value;
+  if (!texto.trim()) delete DB_TEORIA[id]; else DB_TEORIA[id] = texto;
+  saveState();
+  fecharModalResumo();
+  renderFilteredTopics();
+  alert("✅ Resumo salvo!");
+}
+
+function abrirModalImportar(id) {
+  document.getElementById('imp-topico-id').innerText = id;
+  document.getElementById('imp-topico-num').value = id;
+  document.getElementById('adm-massa-texto').value = '';
+  document.getElementById('modal-importar').style.display = 'flex';
+}
+function fecharModalImportar() { document.getElementById('modal-importar').style.display = 'none'; }
+
+async function importarEmMassaTopico() {
+  let topicoId = parseInt(document.getElementById('imp-topico-num').value);
+  let raw = document.getElementById('adm-massa-texto').value.trim();
+  if(!raw) { alert("Cole o JSON com as questões!"); return; }
+  
+  try {
+    let parsed = JSON.parse(raw.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/, '').trim());
+    if(!Array.isArray(parsed)) throw new Error("O formato deve ser um array JSON [...]");
+    
+    let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+    let ed = poolEd.find(e => e.id === topicoId);
+    let materiaPadrao = ed ? ed.disc : "Geral";
+
+    // Prepara os registros para inserir na tabela relacional 'questoes' do Supabase
+    let novasQuestoesSupabase = parsed.map(q => ({
+      topico_id: topicoId,
+      materia: q.materia || materiaPadrao,
+      banca: q.banca || "AOCP",
+      nivel: q.nivel ?? 2,
+      enunciado: q.q,
+      alternativas: q.opts,
+      gabarito: q.correct,
+      explicacao: q.expl
+    }));
+
+    // Envia para o Supabase via POST
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify(novasQuestoesSupabase)
+    });
+
+    if (!res.ok) throw new Error("Erro ao salvar no Supabase. Verifique se a tabela 'questoes' foi criada corretamente.");
+
+    alert("✅ Questões importadas e salvas no banco de dados com sucesso!");
+    fecharModalImportar();
+    if(document.getElementById('view-topicos').style.display === 'block') {
+      renderFilteredTopics();
+    }
+  } catch(e) { 
+    alert("❌ Erro ao importar: " + e.message); 
+  }
+}
+function exportarBancoCompleto() {
+  let banco = { teoria: DB_TEORIA, questoes: DB_QUESTOES_ALL };
+  let blob = new Blob([JSON.stringify(banco, null, 2)], { type: "application/json" });
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement('a');
+  a.href = url; a.download = `conteudo_global.json`;
+  a.click();
+}
+
+async function excluirQuestaoQuiz(qId) {
+  if(confirm("Excluir esta questão do banco de dados?")) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/questoes?id=eq.${qId}`, {
+        method: 'DELETE',
+        headers: { 
+          'apikey': SUPABASE_ANON_KEY, 
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}` 
+        }
+      });
+      
+      cadernoAcertos = cadernoAcertos.filter(q => q.id !== qId);
+      cadernoErros = cadernoErros.filter(q => q.id !== qId);
+      saveState();
+      closeQuizBack();
+      alert("🗑️ Questão excluída com sucesso!");
+    } catch(e) {
+      alert("Erro ao excluir questão.");
+    }
+  }
+}
+
+/* QUIZ COM CRONÔMETRO E BARRA DE PROGRESSO */
+let quizList = [], quizPos = 0, quizAnswers = {}, quizElims = {}, quizTopicoIdAtual = null;
+let quizTimerSeconds = 0, quizTimerInterval = null, quizIsPaused = false;
+
+function getElim(id) { if(!quizElims[id]) quizElims[id]=new Set(); return quizElims[id]; }
+
+// =============================================================
+// NOVO OPENQUIZ POR DEMANDA (BUSCA DIRETO DO SUPABASE)
+// =============================================================
+async function openQuiz(topicoId) {
+  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let itemAtual = poolEd.find(e => e.id === topicoId);
+  
+  let idsParaBuscar = [topicoId];
+  if (itemAtual && itemAtual.equivalente_id) {
+    idsParaBuscar = poolEd
+      .filter(e => e.equivalente_id === itemAtual.equivalente_id)
+      .map(e => e.id);
+  }
+
+  try {
+    // Mostra um aviso rápido ou indicador se desejar
+    let idsQuery = idsParaBuscar.join(',');
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes?topico_id=in.(${idsQuery})&select=*`, {
+      method: 'GET',
+      headers: { 
+        'apikey': SUPABASE_ANON_KEY, 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` 
+      }
+    });
+    
+    let dadosSupabase = await res.json();
+    
+    // Mapeia os dados do Supabase para o formato que o seu quiz lê
+    let questoesDoTopico = (dadosSupabase || []).map(q => ({
+      id: q.id,
+      topico_id: q.topico_id,
+      materia: q.materia,
+      banca: q.banca,
+      nivel: q.nivel,
+      q: q.enunciado,
+      opts: q.alternativas,
+      correct: q.gabarito,
+      expl: q.explicacao
+    }));
+
+    // Filtra as questões que já foram arquivadas nos cadernos locais do usuário
+    quizList = questoesDoTopico.filter(q => !isQuestionArchived(q.id));
+
+  } catch (e) {
+    console.error("Erro ao buscar questões do Supabase:", e);
+    quizList = [];
+  }
+  
+  if(quizList.length === 0) { 
+    alert("Não há questões cadastradas ou pendentes neste tópico."); 
+    return; 
+  }
+  
+  hideAllViews();
+  document.getElementById('view-quiz').style.display = 'block';
+  quizPos = 0; quizAnswers = {}; quizElims = {};
+  quizTopicoIdAtual = topicoId;
+  quizTimerSeconds = 0;
+  quizIsPaused = false;
+  iniciarCronometroQuiz();
+  renderQuizView();
+}
+
+function iniciarCronometroQuiz() {
+  if(quizTimerInterval) clearInterval(quizTimerInterval);
+  quizTimerInterval = setInterval(() => {
+    if(!quizIsPaused) {
+      quizTimerSeconds++;
+      let el = document.getElementById('quiz-timer-display');
+      if(el) el.innerText = formatarTempo(quizTimerSeconds);
+    }
+  }, 1000);
+}
+
+function pausarRetomarCronometro() {
+  quizIsPaused = !quizIsPaused;
+  let btn = document.getElementById('btn-pausa-cron');
+  if(btn) {
+    btn.innerText = quizIsPaused ? "▶️ Continuar" : "⏸️ Pausar";
+    btn.style.background = quizIsPaused ? "var(--green)" : "var(--card-bg2)";
+    btn.style.color = quizIsPaused ? "#fff" : "var(--fg)";
+  }
+}
+
+function resetarCronometro() {
+  quizTimerSeconds = 0;
+  let el = document.getElementById('quiz-timer-display');
+  if(el) el.innerText = formatarTempo(0);
+}
+
+function closeQuizBack() {
+  hideAllViews();
+  if (CURRENT_FILTER.type === 'dia') openDay(CURRENT_FILTER.val);
+  else if (CURRENT_FILTER.type === 'disc') openDiscipline(CURRENT_FILTER.val);
+  else showMainView('trilha');
+}
+
+function concluirQuizEDe(concluirAutomatico) {
+  let tempoTotalTopico = (temposTopicos[quizTopicoIdAtual] || 0) + quizTimerSeconds;
+  hideAllViews();
+  let tempoFinalStr = formatarTempo(tempoTotalTopico);
+  if(concluirAutomatico) {
+    alert(`🎉 Parabéns! Você concluiu o tópico.\n⏱️ Tempo total levado: ${tempoFinalStr}`);
+  }
+  if (CURRENT_FILTER.type === 'dia') openDay(CURRENT_FILTER.val);
+  else if (CURRENT_FILTER.type === 'disc') openDiscipline(CURRENT_FILTER.val);
+  else showMainView('trilha');
+}
+
+function toggleQStrike(id, idx, ev) {
+  ev.stopPropagation();
+  const set = getElim(id);
+  if(set.has(idx)) set.delete(idx); else set.add(idx);
+  renderQuizView();
+}
+
+function selectQOpt(id, idx) {
+  if(quizAnswers[id]?.selected !== undefined) return;
+  const q = quizList.find(x => x.id === id);
+  const correct = (idx === q.correct);
+  
+  // Define um motivo padrão inicial ("sabia" para acerto, "dificil" para erro)
+  let motivoInicial = correct ? 'sabia' : 'dificil';
+
+  quizAnswers[id] = { selected: idx, correct: correct, motivo: motivoInicial };
+  let questaoArquivada = { ...q, respostaUsuario: idx, motivo: motivoInicial, tentativasErros: 1 };
+
+  if(correct) cadernoAcertos.unshift(questaoArquivada);
+  else cadernoErros.unshift(questaoArquivada);
+
+  saveState();
+  renderQuizView();
+}
+
+function definirMotivo(id, motivo) {
+  if(quizAnswers[id]) {
+    quizAnswers[id].motivo = motivo;
+  }
+  
+  let foundAcerto = cadernoAcertos.find(x => x.id === id);
+  let foundErro = cadernoErros.find(x => x.id === id);
+  
+  if(foundAcerto) {
+    foundAcerto.motivo = motivo;
+  }
+  if(foundErro) {
+    foundErro.motivo = motivo;
+  }
+  
+  saveState();
+  renderQuizView();
+}
+
+function qNext() { 
+  if(quizPos < quizList.length - 1) { 
+    quizPos++; 
+    renderQuizView(); 
+  } else {
+    concluirQuizEDe(true);
+  }
+}
+
+function qPrev() { if(quizPos > 0) { quizPos--; renderQuizView(); } }
+
+window.addEventListener('keydown', (e) => {
+  if(document.getElementById('view-quiz').style.display === 'block') {
+    if(e.key === 'ArrowRight') qNext();
+    else if(e.key === 'ArrowLeft') qPrev();
+  }
+});
+
+function renderQuizView() {
+  if(quizList.length === 0 || quizPos >= quizList.length) { closeQuizBack(); return; }
+  const q = quizList[quizPos];
+  const ans = quizAnswers[q.id];
+  const elimSet = getElim(q.id);
+  const LETTERS = ['A','B','C','D','E'];
+  
+  let pctProgresso = Math.round(((quizPos + 1) / quizList.length) * 100);
+
+  let segmentosHTML = quizList.map((qItem, i) => {
+    let ansItem = quizAnswers[qItem.id];
+    let corSegmento = 'transparent'; 
+    if (ansItem && ansItem.selected !== undefined) {
+      corSegmento = ansItem.correct ? 'var(--green)' : 'var(--red)'; 
+    } else if (i < quizPos) {
+      corSegmento = 'var(--brass)'; 
+    } else if (i === quizPos) {
+      corSegmento = 'rgba(184, 145, 47, 0.25)'; 
+    }
+    return `<div style="flex:1; height:100%; background:${corSegmento}; border-right:1px solid rgba(0,0,0,0.2);"></div>`;
+  }).join('');
+
+  let optsHtml = q.opts.map((opt, i) => {
+    let cls = 'opt-btn';
+    if(ans?.selected !== undefined) {
+      if(i === q.correct) cls += ' correct';
+      else if(i === ans.selected) cls += ' wrong';
+      else cls += ' dim';
+    } else if(elimSet.has(i)) cls += ' struck';
+    let strikeBtn = (!ans || ans.selected === undefined) ? `<button class="strike-btn ${elimSet.has(i)?'active':''}" onclick="toggleQStrike(${q.id}, ${i}, event)">✕</button>` : '';
+    return `<div class="opt-row"><button class="${cls}" onclick="selectQOpt(${q.id}, ${i})"><span class="opt-letter">${LETTERS[i]}</span>${opt}</button>${strikeBtn}</div>`;
+  }).join('');
+
+  // Botão extra para mandar direto para o Caderno de Erros caso não saiba fazer
+  let botaoNaoSei = (!ans || ans.selected === undefined) ? `
+    <div style="margin-top: 12px; text-align: right;">
+      <button class="btn btn-danger" style="font-size: 12px; padding: 6px 12px;" onclick="marcarComoNaoSoubeFazer(${q.id})">
+        🚨 Não sei / Mandar para Caderno de Erros
+      </button>
+    </div>` : '';
+
+  let motivoBlock = '';
+  if(ans?.selected !== undefined) {
+    if(ans.correct) {
+      motivoBlock = `<div style="margin-top:16px;background:var(--card-bg2);padding:14px;border-radius:8px;border:1px solid var(--brass);">
+        <b style="display:block;margin-bottom:8px;color:var(--brass-2);">🎯 Por que acertou?</b>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn ${ans.motivo==='sabia'?'btn-primary':''}" style="${ans.motivo==='sabia'?'':'background:var(--green);color:#fff;'}" onclick="definirMotivo(${q.id}, 'sabia')">🟢 Sabia</button>
+          <button class="btn ${ans.motivo==='parcial'?'btn-primary':''}" style="${ans.motivo==='parcial'?'':'background:var(--brass);color:#fff;'}" onclick="definirMotivo(${q.id}, 'parcial')">🟡 Parcial</button>
+          <button class="btn ${ans.motivo==='chute'?'btn-primary':''}" style="${ans.motivo==='chute'?'':'background:var(--navy);color:#fff;'}" onclick="definirMotivo(${q.id}, 'chute')">🟠 Chute</button>
+          <button class="btn ${ans.motivo==='ajuda'?'btn-primary':''}" style="${ans.motivo==='ajuda'?'':'background:#2B4C7E;color:#fff;'}" onclick="definirMotivo(${q.id}, 'ajuda')">💡 Fiz com Ajuda / Resolução Guiada</button>
+        </div>
+      </div>`;
+    } else {
+      motivoBlock = `<div style="margin-top:16px;background:var(--card-bg2);padding:14px;border-radius:8px;border:1px solid var(--red);">
+        <b style="display:block;margin-bottom:8px;color:var(--red);">⚠️ Por que errou?</b>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button class="btn ${ans.motivo==='dificil'?'btn-primary':''}" style="${ans.motivo==='dificil'?'':'background:var(--red);color:#fff;'}" onclick="definirMotivo(${q.id}, 'dificil')">🔴 Difícil</button>
+          <button class="btn ${ans.motivo==='detalhe'?'btn-primary':''}" style="${ans.motivo==='detalhe'?'':'background:var(--navy);color:#fff;'}" onclick="definirMotivo(${q.id}, 'detalhe')">⚠️ Detalhe</button>
+          <button class="btn ${ans.motivo==='ajuda'?'btn-primary':''}" style="${ans.motivo==='ajuda'?'':'background:#2B4C7E;color:#fff;'}" onclick="definirMotivo(${q.id}, 'ajuda')">💡 Precisei de Ajuda / Resolução Guiada</button>
+        </div>
+      </div>`;
+    }
+  }
+let botaoNivel4 = (ans && ans.selected !== undefined) ? `
+    <div style="margin-top: 10px;">
+      <button class="btn" style="background:#3E1C38; color:#FF79C6; border-color:#FF79C6; font-size:11.5px; padding:4px 10px;" onclick="tornarQuestaoImpossivel(${q.id})">
+        🔥 Marcar como Nível 4 (Impossível)
+      </button>
+    </div>` : '';
+
+  let resultBlock = ans?.selected !== undefined ? `
+    <div class="${ans.correct ? 'stamp ok' : 'stamp no'}">${ans.correct ? 'CORRETO' : 'INCORRETO'}</div>
+    ${motivoBlock}
+    <div class="expl-box"><b style="font-family:var(--mono);font-size:11px;color:var(--brass);display:block;margin-bottom:6px;">COMENTÁRIO DA RESOLUÇÃO</b>${q.expl}</div>
+    <div style="margin-top:16px;"><button class="btn btn-primary" onclick="qNext()">${quizPos === quizList.length-1 ? '🏁 Concluir Tópico' : 'Próxima Questão →'}</button></div>` : '';
+  
+  document.getElementById('content-quiz').innerHTML = `
+    <div class="topic-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <button class="btn" onclick="closeQuizBack()">⬅ Sair e Salvar Tempo</button>
+        <div style="display:flex;gap:12px;align-items:center;background:var(--card-bg2);padding:6px 12px;border-radius:8px;border:1px solid var(--line);">
+          <span style="font-family:var(--mono);font-size:13px;font-weight:bold;color:var(--brass-2);">⏱️ <span id="quiz-timer-display">${formatarTempo(quizTimerSeconds)}</span></span>
+          <button class="btn" id="btn-pausa-cron" style="padding:4px 8px;font-size:11px;" onclick="pausarRetomarCronometro()">⏸️ Pausar</button>
+          <button class="btn" style="padding:4px 8px;font-size:11px;" onclick="resetarCronometro()">🔄 Resetar</button>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn" style="padding:6px 12px;font-size:12px;background:var(--card-bg2);color:var(--brass);border-color:var(--brass);" onclick="abrirModalEditarQuestaoId(${q.id})">✏️ Editar</button>
+          <button class="btn btn-danger" onclick="excluirQuestaoQuiz(${q.id})" style="padding:6px 12px;font-size:12px;">🗑️ Excluir</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);margin-bottom:4px;">
+          <span>Progresso do Tópico: Questão ${quizPos + 1} de ${quizList.length}</span>
+          <span><b>${pctProgresso}%</b></span>
+        </div>
+        <div class="bar-bg" style="display:flex; overflow:hidden; padding:0; background:var(--card-bg2);">
+          ${segmentosHTML}
+        </div>
+      </div>
+
+      <div class="q-meta-top"><span class="pill pill-disc">${q.materia}</span><span class="pill">${q.banca}</span><span class="pill pill-nivel-${q.nivel}">Nível ${q.nivel}</span><span class="pill">💡 Dica: Use as setas ← → do teclado</span></div>
+      <p class="q-text">${q.q}</p>
+      ${optsHtml}
+      ${botaoNaoSei}
+      ${resultBlock}
+      <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:16px;border-top:1px solid var(--line);">
+        <button class="btn" onclick="qPrev()" ${quizPos === 0 ? 'disabled' : ''}>← Anterior</button>
+        <button class="btn btn-primary" onclick="qNext()">${quizPos === quizList.length-1 ? '🏁 Concluir' : 'Próxima →'}</button>
+      </div>
+    </div>`;
+    renderizarMatematica();
+}
+function marcarComoNaoSoubeFazer(id) {
+  const q = quizList.find(x => x.id === id);
+  // Simula que o usuário escolheu uma alternativa errada para cair no erro
+  let alternativaFalsa = (q.correct === 0) ? 1 : 0;
+  
+  quizAnswers[id] = { selected: alternativaFalsa, correct: false, motivo: 'dificil' };
+  let questaoArquivada = { ...q, respostaUsuario: alternativaFalsa, motivo: 'dificil', tentativasErros: 1 };
+
+  cadernoErros.unshift(questaoArquivada);
+  saveState();
+  renderQuizView();
+}
+function updateMeta(id, val) { 
+  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let item = poolEd.find(x => x.id === id); 
+  if (item) { item.meta = Math.max(0, parseInt(val) || 0); customMeta[id] = item.meta; saveState(); } 
+}
+function toggleR(id) { let p = getP(id); p.revisar = !p.revisar; saveState(); }
+function updateNote(id, val) { let p = getP(id); p.note = val; saveState(); }
+
+function renderRev() {
+  let poolEd = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let items = poolEd.filter(x => { let stats = getTopicStats(x.id); let p = getP(x.id); return p.revisar || (stats.feitas > 0 && stats.pct < 70); });
+  document.getElementById('content-rev').innerHTML = items.length === 0 ? `<div style="text-align:center;padding:30px;color:var(--ink-soft);">Nenhum tópico em revisão! 🎯</div>` : items.map(item => createCard(item)).join('');
+}
+
+function renderRel() {
+  let poolEd = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let totaisFeitas = 0, totaisAcertos = 0, statsPorDisc = {};
+  poolEd.forEach(item => {
+    let stats = getTopicStats(item.id);
+    totaisFeitas += stats.feitas; totaisAcertos += stats.acertos;
+    if(!statsPorDisc[item.disc]) statsPorDisc[item.disc] = {feitas:0, acertos:0, qtd:0, conc:0};
+    statsPorDisc[item.disc].feitas += stats.feitas; 
+    statsPorDisc[item.disc].acertos += stats.acertos; 
+    statsPorDisc[item.disc].qtd++;
+    if(stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta)) statsPorDisc[item.disc].conc++;
+  });
+  let pctGeral = totaisFeitas > 0 ? Math.round((totaisAcertos / totaisFeitas) * 100) : 0;
+  
+  let rowsHtml = Object.keys(statsPorDisc).map(disc => {
+    let d = statsPorDisc[disc];
+    let p = d.qtd > 0 ? Math.round((d.conc / d.qtd) * 100) : 0;
+    let acP = d.feitas > 0 ? Math.round((d.acertos/d.feitas)*100) : 0;
+    return `<div class="topic-row"><span style="flex:1;font-weight:600;">${disc}</span><span style="font-family:var(--mono);font-size:11px;">${d.conc}/${d.qtd} ok</span><span class="bar-mini"><span class="bar-mini-fill" style="width:${p}%;"></span></span><span style="font-family:var(--mono);font-size:11px;font-weight:bold;width:45px;text-align:right;">${acP}% 🎯</span></div>`;
+  }).join('');
+
+  let todosCiclosGrafico = [...historicoCiclos, {
+    ciclo: cicloAtualNum + ' (Atual)', feitas: totaisFeitas, acertos: totaisAcertos, erros: totaisFeitas - totaisAcertos, pct: pctGeral
+  }];
+
+  let chartBarsHtml = todosCiclosGrafico.map(c => {
+    let barColor = c.pct >= 80 ? 'var(--green)' : (c.pct >= 60 ? 'var(--brass)' : 'var(--red)');
+    let heightPct = Math.max(c.pct, 6);
+    return `<div class="chart-col"><div class="chart-val">${c.pct}%</div><div class="chart-bar" style="height:${heightPct}%;background:${barColor};"></div><div class="chart-lbl">C#${c.ciclo}</div></div>`;
+  }).join('');
+
+  document.getElementById('content-rel').innerHTML = `
+    <div class="topic-card" style="text-align:center;padding:20px;">
+      <div style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">APROVEITAMENTO (CICLO #${cicloAtualNum})</div>
+      <div class="score-num" style="font-size:48px;">${pctGeral}%</div>
+      <div style="font-family:var(--mono);font-size:12px;font-weight:bold;color:var(--brass);">${totaisAcertos} ACERTOS DE ${totaisFeitas} FEITAS</div>
+    </div>
+    <div class="topic-card">
+      <h3 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">📈 Gráfico de Evolução por Ciclo</h3>
+      <div class="chart-box">${chartBarsHtml}</div>
+    </div>
+    <div class="topic-card" style="padding:16px;">
+      <h3 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">📚 Desempenho por Matéria</h3>
+      ${rowsHtml}
+    </div>`;
+}
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? '' : 'dark';
+  if(next) document.documentElement.setAttribute('data-theme','dark');
+  else document.documentElement.removeAttribute('data-theme');
+}
+
+/* SIMULADO */
+let simList = [], simPos = 0, simAnswers = {}, simFinished = false;
+function initSimuladoSetup() {
+  let pool = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let disciplinas = [...new Set(pool.map(s => s.disc))];
+  document.getElementById('sim-disc-list').innerHTML = disciplinas.map(d => `<label style="display:flex;align-items:center;gap:8px;font-size:14px;background:var(--card-bg2);padding:8px 12px;border:1px solid var(--line);border-radius:6px;"><input type="checkbox" class="sim-disc-chk" value="${d}" checked> ${d}</label>`).join('');
+}
+
+function startSimulado() {
+  let selectedDiscs = Array.from(document.querySelectorAll('.sim-disc-chk:checked')).map(el => el.value);
+  if(selectedDiscs.length === 0) { alert("Selecione pelo menos uma disciplina!"); return; }
+  let qtd = parseInt(document.getElementById('sim-qtd').value);
+  let pool = DB_QUESTOES_ALL.filter(q => selectedDiscs.includes(q.materia));
+  if(pool.length === 0) { alert("Nenhuma questão cadastrada para os filtros atuais."); return; }
+  simList = pool.sort(() => 0.5 - Math.random()).slice(0, qtd);
+  simPos = 0; simAnswers = {}; simFinished = false;
+  document.getElementById('setup-simulado').style.display = 'none';
+  document.getElementById('run-simulado').style.display = 'block';
+  renderSimRunView();
+}
+
+function selectSimOpt(id, idx) {
+  if(simFinished) return;
+  const q = simList.find(x => x.id === id);
+  simAnswers[id] = { selected: idx, correct: (idx === q.correct) };
+  renderSimRunView();
+}
+function simNext() { if(simPos < simList.length - 1) { simPos++; renderSimRunView(); } }
+function simPrev() { if(simPos > 0) { simPos--; renderSimRunView(); } }
+function finishSimulado() { simFinished = true; renderSimRunView(); }
+function exitSimulado() { document.getElementById('setup-simulado').style.display = 'block'; document.getElementById('run-simulado').style.display = 'none'; }
+
+function renderSimRunView() {
+  if(simFinished) {
+    let acertos = 0; simList.forEach(q => { if(simAnswers[q.id]?.correct) acertos++; });
+    let pct = Math.round((acertos / simList.length) * 100);
+    document.getElementById('simulado-content').innerHTML = `<div class="topic-card" style="text-align:center;"><h2>Resultado: ${pct}% (${acertos}/${simList.length})</h2><button class="btn btn-primary" onclick="exitSimulado()">Voltar</button></div>`;
+    return;
+  }
+  const q = simList[simPos]; const ans = simAnswers[q.id]; const LETTERS = ['A','B','C','D','E'];
+  let optsHtml = q.opts.map((opt, i) => `<div class="opt-row"><button class="opt-btn" style="${ans?.selected === i ? 'border-color:var(--brass);background:var(--mnemo-bg);' : ''}" onclick="selectSimOpt(${q.id}, ${i})"><span class="opt-letter">${LETTERS[i]}</span>${opt}</button></div>`).join('');
+  document.getElementById('simulado-content').innerHTML = `<div class="topic-card"><div style="display:flex;justify-content:space-between;margin-bottom:12px;"><button class="btn" onclick="exitSimulado()">✖ Sair</button><button class="btn btn-primary" onclick="finishSimulado()">✅ Finalizar</button></div><div class="q-meta-top"><span class="pill pill-disc">${q.materia}</span><span class="pill">Q ${simPos+1}/${simList.length}</span></div><p class="q-text">${q.q}</p>${optsHtml}<div style="display:flex;justify-content:space-between;margin-top:16px;"><button class="btn" onclick="simPrev()" ${simPos===0?'disabled':''}>← Anterior</button><button class="btn" onclick="simNext()" ${simPos===simList.length-1?'disabled':''}>Próxima →</button></div></div>`;
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  verificarPrimeiroAcesso();
+  verificarAtualizacaoAutomatica();
+  showMainView('trilha');
+});
+
+function tornarQuestaoImpossivel(id) {
+  [DB_QUESTOES_ALL, cadernoAcertos, cadernoErros].forEach(list => {
+    let q = list.find(x => x.id === id);
+    if(q) q.nivel = 4;
+  });
+  saveState();
+  renderQuizView();
+  alert("🔥 Questão marcada como Nível 4 (Impossível)!");
+}
+
+function renderizarMatematica() {
+  if (typeof renderMathInElement === 'function') {
+    renderMathInElement(document.body, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$', display: false},
+        {left: '\\(', right: '\\)', display: false},
+        {left: '\\[', right: '\\]', display: true}
+      ],
+      throwOnError: false
+    });
+  }
+}
+
+async function atualizarContadorQuestoesCard(topicoId, elementoId) {
+  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let itemAtual = poolEd.find(e => e.id === topicoId);
+  let idsParaBuscar = [topicoId];
+  if (itemAtual && itemAtual.equivalente_id) {
+    idsParaBuscar = poolEd.filter(e => e.equivalente_id === itemAtual.equivalente_id).map(e => e.id);
+  }
+
+  try {
+    let idsQuery = idsParaBuscar.join(',');
+    // Pede apenas a contagem ao Supabase sem trafegar o texto das questões (extremamente rápido e leve)
+    let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes?topico_id=in.(${idsQuery})&select=id`, {
+      method: 'GET',
+      headers: { 
+        'apikey': SUPABASE_ANON_KEY, 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Range': '0-999' // Garante pegar até 1000 IDs para contagem
+      }
+    });
+    let dados = await res.json();
+    if(!Array.isArray(dados)) return;
+
+    // Filtra as que já estão no caderno de acertos ou erros do usuário
+    let pendentes = dados.filter(q => !isQuestionArchived(q.id)).length;
+    
+    let el = document.getElementById(elementoId);
+    if(el) {
+      el.innerText = `📝 Questões (${pendentes})`;
+    }
+  } catch(e) {
+    console.error("Erro ao contar questões:", e);
+  }
+}
+</script>
+</body>
+</html>
