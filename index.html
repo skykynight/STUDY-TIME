@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <!-- CSS do KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+<!-- JavaScript do KaTeX -->
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+<!-- Script de auto-renderização com suporte a cifrão ($) -->
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"
+    onload="renderMathInElement(document.body, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '$', right: '$', display: false},
+        {left: '\\(', right: '\\)', display: false},
+        {left: '\\[', right: '\\]', display: true}
+      ],
+      throwOnError: false
+    });"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#141E33">
+<title>CFO — App de Estudos</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- TELA DE LOGIN OBRIGATÓRIA / BOAS-VINDAS -->
+<div id="modal-login-inicial" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width:420px;text-align:center;padding:30px;">
+    <h2 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;font-size:24px;">🚒 App de Estudos CFO</h2>
+    <p style="font-size:13.5px;color:var(--ink-soft);margin-bottom:24px;">Bem-vindo ao app de estudos! Para começar, digite o seu nome e crie o seu ID único de acesso.</p>
+    
+    <div class="form-group" style="text-align:left;">
+      <label>Seu Nome ou Apelido (Ex: SD Silva):</label>
+      <input type="text" id="setup-input-nome" class="form-control" placeholder="Digite seu nome...">
+    </div>
+    <div class="form-group" style="text-align:left;">
+      <label>ID Único (Ex: silva, carlos, ramiro):</label>
+      <input type="text" id="setup-input-id" class="form-control" placeholder="Identificador curto sem espaços...">
+    </div>
+    <button class="btn btn-primary" style="width:100%;padding:14px;font-size:15px;margin-top:10px;" onclick="salvarConfigInicial()">🚀 Entrar e Começar a Estudar</button>
+  </div>
+</div>
+
+<div class="topbar">
+  <h1 id="app-main-title" onclick="showMainView('trilha')">🚒 CFO — App</h1>
+  <div class="nav-group">
+    <button class="tab-btn active" id="nav-trilha" onclick="showMainView('trilha')">🗺️ Trilha</button>
+    <button class="tab-btn" id="nav-materias" onclick="showMainView('materias')">📚 Matérias</button>
+    <button class="tab-btn" id="nav-cadernos" onclick="showMainView('cadernos')">🗂️ Cadernos</button>
+    <button class="tab-btn" id="nav-backup" onclick="showMainView('backup')">💾 Backup</button>
+    <button class="tab-btn" id="nav-revisao" onclick="showMainView('revisao')">⚠️ Revisão</button>
+    <button class="tab-btn" id="nav-simulado" onclick="showMainView('simulado')">🎯 Simulado</button>
+    <button class="tab-btn" id="nav-ranking" onclick="showMainView('ranking')">🏆 Ranking</button>
+    <button class="tab-btn" id="nav-perfil" onclick="showMainView('perfil')">👤 Perfil</button>
+    <button class="tab-btn" id="nav-relatorio" onclick="showMainView('relatorio')">📊 Relatório</button>
+    <button class="theme-btn" onclick="toggleTheme()">🌓</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="hero-stats">
+    <div class="stat-box"><div class="stat-label">Aproveitamento Geral</div><div class="stat-val" id="hub-pct">0%</div></div>
+    <div class="stat-box"><div class="stat-label">Questões Feitas</div><div class="stat-val" id="hub-feitas">0</div></div>
+    <div class="stat-box"><div class="stat-label">Missões Concluídas</div><div class="stat-val" id="hub-topicos">0/0</div></div>
+  </div>
+
+  <!-- VIEW 1: TRILHA -->
+  <div id="view-trilha">
+    <!-- TELA DE ESCOLHA DO CONCURSO -->
+    <div id="trilha-seletor-container" style="display:none; text-align:center; padding: 40px 20px;">
+      <div class="topic-card" style="max-width: 500px; margin: 0 auto; padding: 30px;">
+        <h2 style="font-family: var(--serif); color: var(--brass-2); margin-top: 0; font-size: 22px;">🎯 Escolha o Concurso</h2>
+        <p style="font-size: 13.5px; color: var(--ink-soft); margin-bottom: 24px;">Selecione qual trilha de estudos deseja acessar agora:</p>
+        <div id="lista-botoes-editais" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+          <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: var(--navy);" onclick="selecionarTrilha('CBMPE')">🚒 CFO CBMPE (Pernambuco)</button>
+          <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: var(--brass); border-color: var(--brass);" onclick="selecionarTrilha('CBMGO')">🚒 CFO CBMGO (Goiás)</button>
+          <!-- Os editais customizados entrarão aqui dinamicamente -->
+        </div>
+        
+        <hr style="border:0; border-top:1px solid var(--line); margin: 20px 0;">
+        <button class="btn" style="width: 100%; padding: 12px;" onclick="abrirGerenciadorEditais()">⚙️ Gerenciar Novos Editais</button>
+      </div>
+    </div>
+
+    <!-- CONTEÚDO DA TRILHA (SÓ APARECE DEPOIS DE ESCOLHER) -->
+    <div id="trilha-conteudo-container" style="display:none;">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <button class="btn btn-danger" style="background: var(--red); border-color: var(--red); color: #fff; margin:0;" onclick="voltarParaSeletorTrilha()">🔴 Voltar para a Seleção de Concursos</button>
+        <span id="badge-concurso-ativo" class="pill pill-disc" style="font-size: 13px; padding: 6px 14px;"></span>
+      </div>
+
+      <div class="cycle-panel">
+        <div class="cycle-info">
+          <div class="cycle-title" id="lbl-ciclo-atual">Ciclo Atual (#1)</div>
+          <div style="font-size:12.5px;color:var(--ink-soft);">Escolha a data do Dia 1 para preencher o restante em sequência, ou altere qualquer dia individualmente abaixo.</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <div>
+            <label style="font-size:10px;font-family:var(--mono);display:block;margin-bottom:3px;color:var(--brass-2);text-transform:uppercase;">Início (Dia 1):</label>
+            <input type="date" id="input-data-inicio" class="form-control" style="padding:6px 10px;width:150px;" onchange="alterarDataInicio(this.value)">
+          </div>
+          <button class="btn btn-danger" style="margin-top:16px;" onclick="encerrarCicloAtual()">🏁 Encerrar Ciclo</button>
+        </div>
+      </div>
+
+      <div class="trail-header"><h2>🗺️ Sequência de Estudos (Ciclo de 7 Dias)</h2></div>
+      <div class="trail-container" id="trail-list"></div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: MATÉRIAS -->
+  <div id="view-materias" style="display:none;">
+    <div class="trail-header"><h2>📚 Cadernos por Matéria</h2></div>
+    <div class="hub-grid" id="hub-disciplinas"></div>
+  </div>
+
+  <!-- VIEW 2.1: CADERNOS DE ACERTOS E ERROS -->
+  <div id="view-cadernos" style="display:none;">
+    <div class="trail-header"><h2>🗂️ Arquivo de Questões (Cadernos de Acertos e Erros)</h2></div>
+    
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btn-tab-acertos" onclick="renderCadernoTab('acertos')">🟢 Caderno de Acertos</button>
+      <button class="btn btn-danger" id="btn-tab-erros" onclick="renderCadernoTab('erros')">🔴 Caderno de Erros</button>
+    </div>
+
+    <div class="topic-card" style="margin-bottom:16px;padding:14px;">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:10px;">
+        <div class="form-group" style="margin:0;">
+          <label>Matéria:</label>
+          <select id="filtro-caderno-materia" class="form-control" onchange="atualizarFiltroTopicosCaderno()">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Subtópico:</label>
+          <select id="filtro-caderno-topico" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Nível:</label>
+          <select id="filtro-caderno-nivel" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todos</option>
+            <option value="1">Nível 1 (Fácil)</option>
+            <option value="2">Nível 2 (Médio)</option>
+            <option value="3">Nível 3 (Difícil)</option>
+            <option value="4">Nível 4 (Impossível)</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Banca:</label>
+          <select id="filtro-caderno-banca" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+          <label>Motivo / Status:</label>
+          <select id="filtro-caderno-motivo" class="form-control" onchange="renderCadernoTab(currentCadernoTab)">
+            <option value="">Todos</option>
+            <option value="sabia">🟢 Sabia perfeitamente</option>
+            <option value="parcial">🟡 Noção parcial</option>
+            <option value="chute">🟠 Chute cego</option>
+            <option value="dificil">🔴 Tava muito difícil</option>
+            <option value="detalhe">⚠️ Errei por detalhe</option>
+            <option value="ajuda">💡 Fiz/Precisei de Ajuda</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div id="content-cadernos"></div>
+  </div>
+
+  <!-- VIEW 3: TÓPICOS -->
+  <div id="view-topicos" style="display:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
+      <button class="btn" id="btn-voltar-lista" onclick="showMainView('trilha')">⬅ Voltar</button>
+      <h2 id="lista-titulo" style="font-family:var(--serif);margin:0;color:var(--brass-2);font-size:19px;"></h2>
+    </div>
+    <div id="content-topicos"></div>
+  </div>
+
+  <!-- VIEW 4: BACKUP GERAL & SINCRONIZAÇÃO NUVEM -->
+  <div id="view-backup" style="display:none;">
+    <div class="topic-card">
+      <h2 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">☁️ Sincronização & Nuvem (Supabase)</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">As questões e resumos são globais para todos os amigos. Suas marcações e cadernos são individuais e sincronizados automaticamente na nuvem.</p>
+      
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+        <button class="btn btn-primary" style="flex:1;padding:12px;" onclick="baixarDadosDaNuvem()">☁️ Sincronizar Agora</button>
+        <button class="btn" onclick="exportarBancoCompleto()">📥 Baixar JSON Local</button>
+      </div>
+
+      <div class="form-group">
+        <label>Texto do Banco (Backup Manual):</label>
+        <textarea id="adm-db-json" class="form-control" style="min-height: 80px;" placeholder='Cole o texto do JSON aqui se precisar importar manualmente...'></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:10px;" onclick="importarBancoCompleto()">🔄 Carregar e Aplicar Dados</button>
+    </div>
+  </div>
+
+  <!-- VIEW 5: REVISÃO -->
+  <div id="view-revisao" style="display:none;"><div id="content-rev"></div></div>
+
+  <!-- VIEW 6: SIMULADO -->
+  <div id="view-simulado" style="display:none;">
+    <div class="topic-card" id="setup-simulado">
+      <h2 style="font-family:var(--serif);margin-top:0;">🎯 Gerador de Simulado</h2>
+      <div style="margin:16px 0;"><div id="sim-disc-list" style="display:flex;flex-direction:column;gap:6px;"></div></div>
+      <div style="margin:16px 0;">
+        <strong style="font-size:14px;display:block;margin-bottom:8px;">Quantidade de Questões:</strong>
+        <select id="sim-qtd" style="padding:8px;border-radius:6px;border:1px solid var(--line);width:100px;">
+          <option value="5">5</option><option value="10" selected>10</option><option value="20">20</option>
+        </select>
+      </div>
+      <button class="btn btn-primary" style="width:100%;font-size:16px;padding:12px;" onclick="startSimulado()">🚀 Iniciar Simulado</button>
+    </div>
+    <div id="run-simulado" style="display:none;"><div id="simulado-content"></div></div>
+  </div>
+
+  <!-- VIEW 7: RANKING -->
+  <div id="view-ranking" style="display:none;">
+    <div class="topic-card" style="margin-bottom: 14px; padding: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+        <h3 style="font-family: var(--serif); margin: 0; color: var(--brass-2); font-size: 18px;">🏆 Placar Geral</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <label style="font-family: var(--mono); font-size: 11.5px; text-transform: uppercase;">Filtrar Edital:</label>
+          <select id="filtro-ranking-edital" class="form-control" style="width: auto; padding: 6px 12px; font-size: 13px;" onchange="renderizarRankingOnline()">
+            <option value="GERAL">📊 Geral (Todos os Editais)</option>
+            <option value="CBMPE">🚒 CFO CBMPE</option>
+            <option value="CBMGO">🚒 CFO CBMGO</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="content-ranking"></div>
+  </div>
+
+  <!-- VIEW 8: PERFIL -->
+  <div id="view-perfil" style="display:none;">
+    <div class="topic-card">
+      <h2 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">👤 Configurar seu Perfil</h2>
+      <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">Altere seu nome ou ID de usuário a qualquer momento.</p>
+      
+      <div class="form-group">
+        <label>Seu Nome / Apelido no Ranking:</label>
+        <input type="text" id="input-meu-nome" class="form-control" placeholder="Ex: SD Silva">
+      </div>
+      <div class="form-group">
+        <label>ID Único na Nuvem (Ex: ramiro, carlos):</label>
+        <input type="text" id="input-meu-id" class="form-control" placeholder="ramiro">
+      </div>
+      <button class="btn btn-primary" style="width:100%;padding:12px;" onclick="salvarPerfilUsuario()">💾 Salvar Perfil e Sincronizar</button>
+    </div>
+  </div>
+
+  <!-- VIEW 9: RELATÓRIO -->
+  <div id="view-relatorio" style="display:none;"><div id="content-rel"></div></div>
+
+  <!-- VIEW 10: QUIZ -->
+  <div id="view-quiz" style="display:none;"><div id="content-quiz"></div></div>
+</div>
+
+<!-- MODAL PARA DETALHES DO USUÁRIO NO RANKING -->
+<div id="modal-ranking-detalhes" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 id="rank-detalhes-titulo" style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📊 Desempenho do Aluno</h3>
+    <div id="rank-detalhes-conteudo" style="margin-top:14px;max-height:60vh;overflow-y:auto;"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;">
+      <button class="btn btn-primary" onclick="fecharModalRankingDetalhes()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA EDITAR RESUMO TEÓRICO -->
+<div id="modal-resumo" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📖 Editar Resumo Teórico (HTML)</h3>
+    <input type="hidden" id="edit-res-id">
+    <div class="form-group">
+      <textarea id="edit-res-texto" class="form-control" style="min-height:220px;" placeholder="<h4>Título...</h4><p>Conteúdo...</p>"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" onclick="fecharModalResumo()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarResumoDireto()">💾 Salvar Resumo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA EDITAR QUESTÃO COMPLETA -->
+<div id="modal-editar-questao" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">✏️ Editar Questão Completa</h3>
+    <input type="hidden" id="edit-q-id">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="form-group">
+        <label>Matéria / Disciplina:</label>
+        <select id="edit-q-materia" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label>Banca (Origem):</label>
+        <select id="edit-q-banca" class="form-control" onchange="checarNovaBanca(this)">
+          <option value="AOCP">AOCP</option>
+          <option value="IA">IA</option>
+          <option value="custom">➕ Outra / Criar nova origem...</option>
+        </select>
+        <input type="text" id="edit-q-banca-custom" class="form-control" style="margin-top:6px;display:none;" placeholder="Digite a nova banca/origem...">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+    <div class="form-group">
+  <label>Nível de Dificuldade:</label>
+  <select id="edit-q-nivel" class="form-control">
+    <option value="1">1 - Fácil</option>
+    <option value="2" selected>2 - Médio</option>
+    <option value="3">3 - Difícil</option>
+    <option value="4">🔥 4 - Impossível (Master)</option>
+  </select>
+</div>
+      <div class="form-group">
+        <label>Gabarito Correto:</label>
+        <select id="edit-q-correct" class="form-control">
+          <option value="0">Alternativa A</option>
+          <option value="1">Alternativa B</option>
+          <option value="2">Alternativa C</option>
+          <option value="3">Alternativa D</option>
+          <option value="4">Alternativa E</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Enunciado da Questão:</label>
+      <textarea id="edit-q-texto" class="form-control" style="min-height:100px;"></textarea>
+    </div>
+    <div class="form-group"><label>Alternativa A:</label><input type="text" id="edit-q-opt0" class="form-control"></div>
+    <div class="form-group"><label>Alternativa B:</label><input type="text" id="edit-q-opt1" class="form-control"></div>
+    <div class="form-group"><label>Alternativa C:</label><input type="text" id="edit-q-opt2" class="form-control"></div>
+    <div class="form-group"><label>Alternativa D:</label><input type="text" id="edit-q-opt3" class="form-control"></div>
+    <div class="form-group"><label>Alternativa E:</label><input type="text" id="edit-q-opt4" class="form-control"></div>
+    <div class="form-group">
+      <label>Comentário / Explicação:</label>
+      <textarea id="edit-q-expl" class="form-control" style="min-height:80px;"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" onclick="fecharModalEditarQuestao()">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarQuestaoEditada()">💾 Salvar Alterações</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PARA IMPORTAÇÃO EM MASSA -->
+<div id="modal-importar" class="modal-overlay" style="display:none;">
+  <div class="modal-card">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📥 Importação em Massa (Tópico <span id="imp-topico-id"></span>)</h3>
+    <p style="font-size:13px;color:var(--ink-soft);">Cole aqui as questões em JSON para este tópico específico:</p>
+    <input type="hidden" id="imp-topico-num">
+    <div class="form-group">
+      <textarea id="adm-massa-texto" class="form-control" style="min-height: 180px;" placeholder='[ { "banca": "AOCP", "nivel": 2, "q": "...", "opts": ["..."], "correct": 2, "expl": "..." } ]'></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" onclick="fecharModalImportar()">Cancelar</button>
+      <button class="btn btn-primary" onclick="importarEmMassaTopico()">📥 Importar Questões</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GERENCIADOR DE EDITAIS -->
+<div id="modal-gerenciador-editais" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width: 800px;">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">⚙️ Gerenciador de Editais</h3>
+    
+    <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+      <button class="btn btn-primary" id="btn-tab-novo-edital" onclick="mudarTabEdital('novo')">➕ Inserir Novo Edital</button>
+      <button class="btn" id="btn-tab-editar-topicos" onclick="mudarTabEdital('editar')">✏️ Editar Tópicos</button>
+      <button class="btn" id="btn-tab-sincronizar" onclick="mudarTabEdital('sincronizar')">🔗 Sincronizar Tópicos</button>
+    </div>
+
+    <!-- TAB: NOVO EDITAL -->
+    <div id="tab-novo-edital">
+      <div class="form-group">
+        <label>Título do Edital (Ex: PMAM - Soldado):</label>
+        <input type="text" id="input-novo-edital-titulo" class="form-control" placeholder="Digite o título...">
+      </div>
+      <div class="form-group">
+        <label>Colar da Planilha (Excel/Sheets):</label>
+        <p style="font-size:11px;color:var(--ink-soft);margin-top:0;">Formato esperado por linha (separado por tabulação): <b>Dia | Disciplina | Tópico</b></p>
+        <textarea id="input-novo-edital-planilha" class="form-control" style="min-height: 150px;" placeholder="1&#9;Língua Portuguesa&#9;Compreensão de Textos&#10;1&#9;Matemática&#9;Conjuntos..."></textarea>
+      </div>
+      <button class="btn btn-primary" style="width:100%;" onclick="salvarNovoEdital()">💾 Criar Edital</button>
+    </div>
+
+    <!-- TAB: EDITAR TÓPICOS -->
+    <div id="tab-editar-topicos" style="display:none;">
+      <div class="form-group">
+        <label>Selecione o Edital para Editar:</label>
+        <select id="select-edital-editar" class="form-control" onchange="carregarTopicosEdicao()"></select>
+      </div>
+      <div id="lista-topicos-edicao" style="max-height: 400px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;"></div>
+    </div>
+
+    <!-- TAB: SINCRONIZAR TÓPICOS -->
+    <div id="tab-sincronizar-topicos" style="display:none;">
+      <p style="font-size:13px;color:var(--ink-soft);">Vincule tópicos de editais diferentes para compartilhar o histórico de questões e resumos.</p>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-bottom:15px;">
+        <div class="topic-card" style="margin:0;padding:10px;">
+          <h4 style="margin:0 0 10px 0;">Tópico A (Origem)</h4>
+          <select id="sync-edital-a" class="form-control" style="margin-bottom:10px;" onchange="popularTopicosSync('a')"></select>
+          <select id="sync-topico-a" class="form-control"></select>
+        </div>
+        <div class="topic-card" style="margin:0;padding:10px;">
+          <h4 style="margin:0 0 10px 0;">Tópico B (Destino)</h4>
+          <select id="sync-edital-b" class="form-control" style="margin-bottom:10px;" onchange="popularTopicosSync('b')"></select>
+          <select id="sync-topico-b" class="form-control"></select>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%;background:var(--brass);border-color:var(--brass);" onclick="executarSincronizacao()">🔗 Vincular Tópicos</button>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--line);padding-top:15px;">
+      <button class="btn" onclick="fecharGerenciadorEditais()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
