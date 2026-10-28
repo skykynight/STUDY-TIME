@@ -804,7 +804,6 @@ function carregarDadosPerfil() {
   let patenteInfo = getPatente(totAcertos);
   let streak = streakData.count;
 
-  // Renderiza a lista de perfis
   let perfis = getPerfisSalvos();
   let htmlPerfis = perfis.map(p => `
       <div style="display:flex; justify-content:space-between; align-items:center; background:var(--card-bg2); padding:12px; border-radius:8px; margin-bottom:10px; border:1px solid ${p.id === MEU_ID_USUARIO ? 'var(--brass)' : 'var(--line)'};">
@@ -814,7 +813,7 @@ function carregarDadosPerfil() {
           </div>
           <div style="display:flex; gap:6px;">
               ${p.id !== MEU_ID_USUARIO ? `<button class="btn btn-primary" style="padding:6px 12px; font-size:12px; background:var(--navy);" onclick="trocarPerfil('${p.id}')">🔄 Entrar</button>` : `<span class="pill" style="background:var(--brass);color:#fff;border-color:var(--brass);">Logado</span>`}
-              <button class="btn btn-danger" style="padding:6px 12px; font-size:12px;" onclick="excluirPerfilPrompt('${p.id}')">🗑️ Excluir</button>
+              <button class="btn btn-danger" style="padding:6px 12px; font-size:12px;" onclick="excluirPerfilPrompt('${p.id}')">🗑️ Sair</button>
           </div>
       </div>
   `).join('');
@@ -836,18 +835,17 @@ function carregarDadosPerfil() {
             </div>
         </div>
         
-        <!-- SESSÃO DE GERENCIAMENTO DE PERFIS -->
         <div style="text-align:left; border-top:1px solid var(--line); padding-top:20px; margin-bottom:20px;">
-            <h3 style="font-family:var(--serif); margin-top:0; color:var(--fg);">👥 Gerenciar Perfis</h3>
-            <p style="font-size:12.5px; color:var(--ink-soft); margin-bottom:16px;">Alterne entre usuários ou crie um novo perfil para dividir o app.</p>
+            <h3 style="font-family:var(--serif); margin-top:0; color:var(--fg);">👥 Alternar Contas (Local)</h3>
+            <p style="font-size:12.5px; color:var(--ink-soft); margin-bottom:16px;">Alterne entre utilizadores ou adicione uma nova conta neste dispositivo.</p>
             ${htmlPerfis}
             <button class="btn" style="width:100%; border-style:dashed; margin-top:8px; padding:12px;" onclick="document.getElementById('modal-login-inicial').style.display='flex'">➕ Adicionar Novo Perfil</button>
         </div>
 
-        <div style="text-align:left; border-top:1px solid var(--line); padding-top:20px;">
-            <h3 style="font-family:var(--serif); margin-top:0; color:var(--fg);">⚙️ Editar Perfil Atual</h3>
+        <div style="text-align:left; border-top:1px solid var(--line); padding-top:20px; margin-bottom:20px;">
+            <h3 style="font-family:var(--serif); margin-top:0; color:var(--fg);">⚙️ Editar o Meu Perfil</h3>
             <div class="form-group" style="margin-top:14px;">
-              <label>Seu Nome / Apelido no Ranking:</label>
+              <label>Nome / Apelido no Ranking:</label>
               <input type="text" id="input-meu-nome" class="form-control" value="${myName}" placeholder="Ex: SD Silva">
             </div>
             <div class="form-group">
@@ -855,6 +853,14 @@ function carregarDadosPerfil() {
               <input type="text" id="input-meu-id" class="form-control" value="${myId}" placeholder="ramiro">
             </div>
             <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="salvarPerfilUsuario()">💾 Atualizar Dados do Perfil</button>
+        </div>
+
+        <!-- NOVO: ADMINISTRAÇÃO DA NUVEM -->
+        <div style="text-align:left; border-top:1px solid var(--red); padding-top:20px; margin-top:20px; background:var(--red-bg); padding:16px; border-radius:8px;">
+            <h3 style="font-family:var(--serif); margin-top:0; color:var(--red);">🚨 Administrador (Apagar Contas)</h3>
+            <p style="font-size:12.5px; color:var(--ink-soft); margin-bottom:10px;">Vê todos os utilizadores da plataforma e apaga perfis da nuvem definitivamente.</p>
+            <button class="btn btn-danger" style="width:100%; padding:10px;" onclick="carregarListaAdminNuvem()">📥 Ver Todos os Usuários da Nuvem</button>
+            <div id="admin-lista-nuvem"></div>
         </div>
     </div>
   `;
@@ -2556,7 +2562,13 @@ function carregarTopicosEdicao() {
   let topicos = obterArrayEditalPorId(editalId);
   let container = document.getElementById('lista-topicos-edicao');
   
-  let html = `<div style="margin-bottom:12px; text-align:right;">
+  let isCustom = editalId.startsWith('EDITAL_');
+  let btnExcluirHtml = isCustom 
+      ? `<button class="btn btn-danger" onclick="excluirEditalCompleto('${editalId}')">🗑️ Excluir Edital Inteiro</button>` 
+      : `<div></div>`; // Espaço vazio se for edital padrão
+
+  let html = `<div style="margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+    ${btnExcluirHtml}
     <button class="btn btn-primary" onclick="adicionarTopicoUnico('${editalId}')">➕ Adicionar Tópico</button>
   </div>`;
 
@@ -2572,7 +2584,6 @@ function carregarTopicosEdicao() {
 
   container.innerHTML = html;
 }
-
 function adicionarTopicoUnico(editalId) {
   let topicos = obterArrayEditalPorId(editalId);
   let novoId = Date.now();
@@ -2662,4 +2673,159 @@ function executarSincronizacao() {
     alert(`✅ Tópicos vinculados com sucesso! (ID Compartilhado: ${syncId})`);
     carregarTopicosEdicao();
   }
+}
+
+async function excluirEditalCompleto(editalId) {
+  if(!editalId.startsWith('EDITAL_')) {
+    alert("Não é possível excluir os editais padrão do sistema.");
+    return;
+  }
+
+  let senha = prompt("⚠️ ATENÇÃO: Isto excluirá o edital para TODOS os utilizadores na nuvem.\n\nDigite a palavra-passe numérica (1 a 8) para confirmar:");
+  
+  if(senha === "12345678") {
+    // 1. APAGA IMEDIATAMENTE LOCALMENTE PARA FEEDBACK INSTANTÂNEO
+    editaisCustomizados = editaisCustomizados.filter(e => e.id !== editalId);
+    localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+
+    // 2. Atualiza a tela na mesma hora (o botão some na hora!)
+    popularSelectsGerenciador();
+    renderizarBotoesEditais();
+
+    if(CURSO_ATUAL === editalId) {
+        voltarParaSeletorTrilha();
+    }
+
+    alert("🗑️ Edital apagado! A atualizar a nuvem em segundo plano...");
+
+    // 3. VAI À NUVEM APAGAR EM SEGUNDO PLANO (Background)
+    try {
+        let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
+          method: 'GET',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        
+        let jsonGlobal = await resGlobal.json();
+        let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
+        
+        // Mescla com a nuvem
+        let editaisNuvem = dadosNuvem.editais || [];
+        let mapEditais = new Map();
+        
+        editaisNuvem.forEach(e => mapEditais.set(e.id, e));
+        editaisCustomizados.forEach(e => mapEditais.set(e.id, e)); // A lista local já não tem o apagado
+        
+        // Garante a 100% que o ID apagado é destruído na nuvem
+        mapEditais.delete(editalId);
+        
+        let editaisFinais = Array.from(mapEditais.values());
+        
+        // Prepara o pacote limpo e envia
+        let payload = { 
+          id: 'global', 
+          dados: { 
+            questoes: DB_QUESTOES_ALL, 
+            teoria: DB_TEORIA,
+            editais: editaisFinais 
+          }, 
+          atualizado_em: new Date() 
+        };
+        
+        await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
+          method: 'POST',
+          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+          body: JSON.stringify(payload)
+        });
+
+        // Só garante que a lista está igual à da nuvem se algum amigo tiver criado outro entretanto
+        editaisCustomizados = editaisFinais;
+        localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+        popularSelectsGerenciador();
+        renderizarBotoesEditais();
+
+    } catch (e) {
+        console.error("Erro ao sincronizar exclusão com a nuvem:", e);
+    }
+  } else {
+    if(senha !== null) alert("❌ Palavra-passe incorreta. Exclusão cancelada.");
+  }
+}
+
+async function carregarListaAdminNuvem() {
+    let container = document.getElementById('admin-lista-nuvem');
+    container.innerHTML = '<div style="text-align:center; padding:10px; font-size:13px; color:var(--ink-soft);">A procurar utilizadores na nuvem...</div>';
+    
+    try {
+        let res = await fetch(`${SUPABASE_URL}/rest/v1/app_ranking?select=usuario_id,nome`, {
+            method: 'GET',
+            headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+        });
+        
+        let usuarios = await res.json();
+
+        if(!usuarios || usuarios.length === 0) {
+            container.innerHTML = '<div style="color:var(--ink-soft);">Nenhum utilizador encontrado.</div>';
+            return;
+        }
+
+        let html = '<div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">';
+        usuarios.forEach(u => {
+            let isEu = u.usuario_id === MEU_ID_USUARIO;
+            html += `
+            <div style="display:flex; justify-content:space-between; align-items:center; background:var(--card-bg); padding:10px; border-radius:6px; border:1px solid ${isEu ? 'var(--brass)' : 'var(--line)'};">
+                <div>
+                    <strong style="color:var(--fg);">${u.nome} ${isEu ? '(Tu)' : ''}</strong> 
+                    <span style="font-size:11px; color:var(--ink-soft); display:block;">@${u.usuario_id}</span>
+                </div>
+                <button class="btn btn-danger" style="padding:6px 10px; font-size:11px; margin:0;" onclick="excluirUsuarioNuvemDefinitivo('${u.usuario_id}', '${u.nome}')">🗑️ Apagar DB</button>
+            </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+        
+    } catch (e) {
+        container.innerHTML = '<div style="color:var(--red);">Erro ao carregar lista de utilizadores.</div>';
+    }
+}
+
+async function excluirUsuarioNuvemDefinitivo(alvoId, alvoNome) {
+    let senha = prompt(`⚠️ ATENÇÃO EXTREMA: Vais apagar o utilizador "${alvoNome}" (@${alvoId}) definitivamente da Nuvem (Progresso, Cadernos e Ranking).\n\nDigita a palavra-passe numérica (1 a 8) para executar:`);
+    
+    if(senha === "12345678") {
+        try {
+            // 1. Apaga do Ranking
+            await fetch(`${SUPABASE_URL}/rest/v1/app_ranking?usuario_id=eq.${alvoId}`, {
+                method: 'DELETE',
+                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+            
+            // 2. Apaga do Progresso
+            await fetch(`${SUPABASE_URL}/rest/v1/app_progresso?usuario_id=eq.${alvoId}`, {
+                method: 'DELETE',
+                headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+            });
+
+            // 3. Remove também da lista local de atalhos, caso esteja gravado no telemóvel
+            let perfis = getPerfisSalvos();
+            perfis = perfis.filter(p => p.id !== alvoId);
+            localStorage.setItem('cbmpe_perfis_salvos', JSON.stringify(perfis));
+
+            if (alvoId === MEU_ID_USUARIO) {
+                // Se a pessoa se apagou a si própria...
+                localStorage.removeItem('cbmpe_meu_id');
+                localStorage.removeItem('cbmpe_nome_usuario');
+                alert("Apagaste a tua própria conta da nuvem. O sistema vai reiniciar.");
+                window.location.reload();
+            } else {
+                alert(`✅ Utilizador ${alvoNome} erradicado da base de dados!`);
+                carregarListaAdminNuvem(); // Atualiza a lista na hora
+            }
+            
+        } catch(e) {
+            alert("Erro ao excluir o utilizador na nuvem.");
+            console.error(e);
+        }
+    } else {
+        if(senha !== null) alert("❌ Palavra-passe incorreta. Exclusão cancelada.");
+    }
 }
