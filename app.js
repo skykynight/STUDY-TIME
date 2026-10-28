@@ -38,6 +38,7 @@ const CADERNO_ERROS_KEY = 'cbmpe_caderno_erros_v2';
 const CICLOS_KEY = 'cbmpe_historico_ciclos_v1';
 const DATAS_CICLO_KEY = 'cbmpe_datas_ciclo_v1';
 const TEMPOS_TOPICOS_KEY = 'cbmpe_tempos_topicos_v1';
+const DATAS_TOPICOS_KEY = 'cbmpe_datas_topicos_v1';
 
 const STREAK_KEY = 'cbmpe_streak_v1';
 let streakData = JSON.parse(localStorage.getItem(STREAK_KEY)) || { count: 0, lastDate: '' };
@@ -94,6 +95,7 @@ let historicoCiclos = JSON.parse(localStorage.getItem(CICLOS_KEY)) || [];
 let cicloAtualNum = localStorage.getItem('cbmpe_ciclo_atual_num') ? parseInt(localStorage.getItem('cbmpe_ciclo_atual_num')) : 1;
 let datasCiclo = JSON.parse(localStorage.getItem(DATAS_CICLO_KEY)) || {};
 let temposTopicos = JSON.parse(localStorage.getItem(TEMPOS_TOPICOS_KEY)) || {};
+let datasTopicos = JSON.parse(localStorage.getItem(DATAS_TOPICOS_KEY)) || {};
 
 let EDITAL_CBMPE = JSON.parse(localStorage.getItem('cbmpe_cache_v1')) || [
   { id: 1, dia: 1, disc: "Língua Portuguesa", topico: "Compreensão e Interpretação de Textos + Tipologias Textuais", meta: 10, equivalente_id: "pt_interpretacao" },
@@ -346,6 +348,40 @@ function getP(id) {
   return progress[id];
 }
 
+function calcularStatsSeguras(listaTopicos) {
+    let idsBusca = new Set();
+    let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+    
+    listaTopicos.forEach(t => {
+        idsBusca.add(t.id);
+        if (t.equivalente_id) {
+            poolEd.filter(e => e.equivalente_id === t.equivalente_id).forEach(e => idsBusca.add(e.id));
+        }
+    });
+
+    let acertosMap = new Map();
+    let errosMap = new Map();
+
+    // DEDUPLICAÇÃO ABSOLUTA: Usamos o texto da questão (q) em vez do ID. 
+    // Mata qualquer duplicação criada pelo Supabase.
+    cadernoAcertos.forEach(q => {
+        if (idsBusca.has(q.topico_id)) acertosMap.set(q.q ? q.q.trim() : q.id, q);
+    });
+
+    cadernoErros.forEach(q => {
+        if (idsBusca.has(q.topico_id)) {
+            let texto = q.q ? q.q.trim() : q.id;
+            if (!acertosMap.has(texto)) errosMap.set(texto, q);
+        }
+    });
+
+    return {
+        feitas: acertosMap.size + errosMap.size,
+        acertos: acertosMap.size,
+        erros: errosMap.size
+    };
+}
+
 function getTopicStats(topicoId) {
   let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
   let itemAtual = poolEd.find(e => e.id === topicoId);
@@ -357,10 +393,22 @@ function getTopicStats(topicoId) {
       .map(e => e.id);
   }
 
-  let acertos = cadernoAcertos.filter(q => idsParaBuscar.includes(q.topico_id)).length;
-  let erros = cadernoErros.filter(q => idsParaBuscar.includes(q.topico_id)).length;
+  let acertosMap = new Map();
+  cadernoAcertos.filter(q => idsParaBuscar.includes(q.topico_id)).forEach(q => {
+     acertosMap.set(q.q ? q.q.trim() : q.id, q);
+  });
+
+  let errosMap = new Map();
+  cadernoErros.filter(q => idsParaBuscar.includes(q.topico_id)).forEach(q => {
+     let texto = q.q ? q.q.trim() : q.id;
+     if (!acertosMap.has(texto)) errosMap.set(texto, q);
+  });
+
+  let acertos = acertosMap.size;
+  let erros = errosMap.size;
   let feitas = acertos + erros;
   let pct = feitas > 0 ? Math.round((acertos / feitas) * 100) : 0;
+  
   return { feitas, acertos, erros, pct };
 }
 
@@ -396,6 +444,7 @@ async function baixarDadosDaNuvem() {
       cicloAtualNum = p.cicloAtualNum || 1;
       datasCiclo = p.datasCiclo || {};
       temposTopicos = p.temposTopicos || {};
+      datasTopicos = p.datasTopicos || {};
     } else {
       await salvarProgressoIndividualNaNuvem();
     }
@@ -425,7 +474,7 @@ async function salvarProgressoIndividualNaNuvem() {
   if (!MEU_ID_USUARIO) return;
   let payload = { 
     usuario_id: MEU_ID_USUARIO, 
-    dados: { progress, customMeta, cadernoAcertos, cadernoErros, historicoCiclos, cicloAtualNum, datasCiclo, temposTopicos }, 
+    dados: { progress, customMeta, cadernoAcertos, cadernoErros, historicoCiclos, cicloAtualNum, datasCiclo, temposTopicos, datasTopicos }, 
     atualizado_em: new Date() 
   };
   await fetch(`${SUPABASE_URL}/rest/v1/app_progresso`, {
@@ -437,15 +486,13 @@ async function salvarProgressoIndividualNaNuvem() {
 
 async function enviarPlacarParaRanking() {
   if (!MEU_ID_USUARIO) return;
-  let totaisFeitas = 0, totaisAcertos = 0;
   
-  // Considera ambos os editais para o ranking geral da nuvem
+  // Usamos a função segura para garantir que enviamos o valor sem duplicações
   let poolGeral = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
-  poolGeral.forEach(item => {
-    let stats = getTopicStats(item.id);
-    totaisFeitas += stats.feitas;
-    totaisAcertos += stats.acertos;
-  });
+  let statsSeguras = calcularStatsSeguras(poolGeral);
+  
+  let totaisFeitas = statsSeguras.feitas;
+  let totaisAcertos = statsSeguras.acertos;
   let pctGeral = totaisFeitas > 0 ? Math.round((totaisAcertos / totaisFeitas) * 100) : 0;
 
   let payload = {
@@ -501,19 +548,24 @@ async function renderizarRankingOnline() {
       let acertosArr = detalhes.cadernoAcertos || [];
       let errosArr = detalhes.cadernoErros || [];
 
+      let totalFeitas = 0, totalAcertos = 0;
+
       if (editalFiltro === 'GERAL') {
-        return item; 
+        // Ignoramos o número duplicado antigo do banco e contamos diretamente dos cadernos limpos!
+        totalFeitas = acertosArr.length + errosArr.length;
+        totalAcertos = acertosArr.length;
+      } else {
+        let idsValidos = editalFiltro === 'CBMPE' 
+          ? Array.from({length: 81}, (_, i) => i + 1) 
+          : Array.from({length: 67}, (_, i) => i + 101).concat([67, 68, 69]);
+
+        let acertosFiltrados = acertosArr.filter(q => idsValidos.includes(q.topico_id));
+        let errosFiltrados = errosArr.filter(q => idsValidos.includes(q.topico_id));
+        
+        totalFeitas = acertosFiltrados.length + errosFiltrados.length;
+        totalAcertos = acertosFiltrados.length;
       }
 
-      let idsValidos = editalFiltro === 'CBMPE' 
-        ? Array.from({length: 81}, (_, i) => i + 1) 
-        : Array.from({length: 67}, (_, i) => i + 101).concat([67, 68, 69]);
-
-      let acertosFiltrados = acertosArr.filter(q => idsValidos.includes(q.topico_id));
-      let errosFiltrados = errosArr.filter(q => idsValidos.includes(q.topico_id));
-      
-      let totalFeitas = acertosFiltrados.length + errosFiltrados.length;
-      let totalAcertos = acertosFiltrados.length;
       let pct = totalFeitas > 0 ? Math.round((totalAcertos / totalFeitas) * 100) : 0;
 
       return {
@@ -636,7 +688,28 @@ function saveState() {
 }
 
 function saveStateLocallyOnly() {
+  cadernoAcertos = Array.from(new Map(cadernoAcertos.map(item => [item.id, item])).values());
+  cadernoErros = Array.from(new Map(cadernoErros.map(item => [item.id, item])).values());
   checkAndUpdateStreak();
+  
+  let hojeStr = new Date().toISOString().split('T')[0];
+  let poolGeral = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  poolGeral.forEach(item => {
+    let stats = getTopicStats(item.id);
+    if (stats.feitas > 0) {
+      if (!datasTopicos[item.id]) {
+        datasTopicos[item.id] = { start: hojeStr, ciclo: cicloAtualNum };
+      }
+      if (item.meta > 0 && stats.feitas >= item.meta && !datasTopicos[item.id].end) {
+        datasTopicos[item.id].end = hojeStr;
+      }
+      if (item.meta > 0 && stats.feitas < item.meta && datasTopicos[item.id].end) {
+        delete datasTopicos[item.id].end;
+      }
+    }
+  });
+
+  localStorage.setItem(DATAS_TOPICOS_KEY, JSON.stringify(datasTopicos));
   localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
   localStorage.setItem(META_KEY, JSON.stringify(customMeta));
   localStorage.setItem(CADERNO_ACERTOS_KEY, JSON.stringify(cadernoAcertos));
@@ -656,6 +729,18 @@ function saveStateLocallyOnly() {
   else if (CURRENT_FILTER.type === 'relatorio') renderRel();
   else if (CURRENT_FILTER.type === 'cadernos') renderCadernoTab(currentCadernoTab);
   else if (CURRENT_FILTER.type === 'ranking') renderizarRankingOnline();
+  else if (CURRENT_FILTER.type === 'calendario') renderCalendario();
+}
+
+// Recupera a lista de perfis salvos no navegador
+function getPerfisSalvos() {
+    let perfis = JSON.parse(localStorage.getItem('cbmpe_perfis_salvos')) || [];
+    if (MEU_ID_USUARIO && !perfis.some(p => p.id === MEU_ID_USUARIO)) {
+        let myName = localStorage.getItem('cbmpe_nome_usuario') || MEU_ID_USUARIO;
+        perfis.push({ id: MEU_ID_USUARIO, nome: myName });
+        localStorage.setItem('cbmpe_perfis_salvos', JSON.stringify(perfis));
+    }
+    return perfis;
 }
 
 function carregarDadosPerfil() {
@@ -663,16 +748,30 @@ function carregarDadosPerfil() {
   let myName = localStorage.getItem('cbmpe_nome_usuario') || '';
   let myId = MEU_ID_USUARIO;
   
-  let totFeitas = 0, totAcertos = 0;
   let poolGeral = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
-  poolGeral.forEach(item => {
-    let stats = getTopicStats(item.id);
-    totFeitas += stats.feitas;
-    totAcertos += stats.acertos;
-  });
+  let statsSeguras = calcularStatsSeguras(poolGeral);
+
+  let totFeitas = statsSeguras.feitas;
+  let totAcertos = statsSeguras.acertos;
   let pctGeral = totFeitas > 0 ? Math.round((totAcertos / totFeitas) * 100) : 0;
+  
   let patenteInfo = getPatente(totAcertos);
   let streak = streakData.count;
+
+  // Renderiza a lista de perfis
+  let perfis = getPerfisSalvos();
+  let htmlPerfis = perfis.map(p => `
+      <div style="display:flex; justify-content:space-between; align-items:center; background:var(--card-bg2); padding:12px; border-radius:8px; margin-bottom:10px; border:1px solid ${p.id === MEU_ID_USUARIO ? 'var(--brass)' : 'var(--line)'};">
+          <div>
+              <strong style="color:var(--fg); font-size:15px;">${p.nome}</strong> 
+              <span style="font-size:11.5px; font-family:var(--mono); color:var(--ink-soft); display:block;">ID: @${p.id}</span>
+          </div>
+          <div style="display:flex; gap:6px;">
+              ${p.id !== MEU_ID_USUARIO ? `<button class="btn btn-primary" style="padding:6px 12px; font-size:12px; background:var(--navy);" onclick="trocarPerfil('${p.id}')">🔄 Entrar</button>` : `<span class="pill" style="background:var(--brass);color:#fff;border-color:var(--brass);">Logado</span>`}
+              <button class="btn btn-danger" style="padding:6px 12px; font-size:12px;" onclick="excluirPerfilPrompt('${p.id}')">🗑️ Excluir</button>
+          </div>
+      </div>
+  `).join('');
 
   view.innerHTML = `
     <div class="topic-card" style="text-align:center; padding:30px 20px; border-top:5px solid var(--brass);">
@@ -690,9 +789,17 @@ function carregarDadosPerfil() {
                 <div style="font-size:11px; font-family:var(--mono); color:var(--ink-soft); text-transform:uppercase;">Precisão (Geral)</div>
             </div>
         </div>
+        
+        <!-- SESSÃO DE GERENCIAMENTO DE PERFIS -->
+        <div style="text-align:left; border-top:1px solid var(--line); padding-top:20px; margin-bottom:20px;">
+            <h3 style="font-family:var(--serif); margin-top:0; color:var(--fg);">👥 Gerenciar Perfis</h3>
+            <p style="font-size:12.5px; color:var(--ink-soft); margin-bottom:16px;">Alterne entre usuários ou crie um novo perfil para dividir o app.</p>
+            ${htmlPerfis}
+            <button class="btn" style="width:100%; border-style:dashed; margin-top:8px; padding:12px;" onclick="document.getElementById('modal-login-inicial').style.display='flex'">➕ Adicionar Novo Perfil</button>
+        </div>
 
         <div style="text-align:left; border-top:1px solid var(--line); padding-top:20px;">
-            <h3 style="font-family:var(--serif); margin-top:0; color:var(--fg);">⚙️ Identidade & Nuvem</h3>
+            <h3 style="font-family:var(--serif); margin-top:0; color:var(--fg);">⚙️ Editar Perfil Atual</h3>
             <div class="form-group" style="margin-top:14px;">
               <label>Seu Nome / Apelido no Ranking:</label>
               <input type="text" id="input-meu-nome" class="form-control" value="${myName}" placeholder="Ex: SD Silva">
@@ -701,24 +808,95 @@ function carregarDadosPerfil() {
               <label>ID Único (Supabase):</label>
               <input type="text" id="input-meu-id" class="form-control" value="${myId}" placeholder="ramiro">
             </div>
-            <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="salvarPerfilUsuario()">💾 Salvar Perfil e Sincronizar</button>
+            <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="salvarPerfilUsuario()">💾 Atualizar Dados do Perfil</button>
         </div>
     </div>
   `;
 }
 
-function salvarPerfilUsuario() {
-  let novoNome = document.getElementById('input-meu-nome').value.trim();
-  let novoId = document.getElementById('input-meu-id').value.trim().toLowerCase().replace(/\s+/g, '_');
-  if(!novoNome || !novoId) { alert("Preencha todos os campos!"); return; }
+// Lógica de alteração e exclusão de perfis
+function trocarPerfil(novoId) {
+    let perfis = getPerfisSalvos();
+    let alvo = perfis.find(p => p.id === novoId);
+    if(!alvo) return;
+    
+    // Salva o estado do usuário que está a sair
+    saveStateLocallyOnly();
+    salvarProgressoIndividualNaNuvem();
 
-  localStorage.setItem('cbmpe_nome_usuario', novoNome);
-  MEU_ID_USUARIO = novoId;
-  localStorage.setItem('cbmpe_meu_id', MEU_ID_USUARIO);
+    // Troca as credenciais principais
+    MEU_ID_USUARIO = alvo.id;
+    localStorage.setItem('cbmpe_meu_id', MEU_ID_USUARIO);
+    localStorage.setItem('cbmpe_nome_usuario', alvo.nome);
+    
+    // Limpa a memória RAM para forçar o download dos novos dados
+    progress = {}; customMeta = {}; cadernoAcertos = []; cadernoErros = [];
+    temposTopicos = {}; datasTopicos = {}; historicoCiclos = []; cicloAtualNum = 1;
+    
+    baixarDadosDaNuvem().then(() => {
+        alert(`Bem-vindo de volta, ${alvo.nome}! Seus dados foram carregados.`);
+        showMainView('perfil');
+    });
+}
 
-  alert("✅ Perfil salvo com sucesso!");
-  baixarDadosDaNuvem();
-  showMainView('trilha');
+function excluirPerfilPrompt(id) {
+    let senha = prompt("⚠️ ATENÇÃO: Esta ação vai excluir o perfil localmente. Digite a senha numérica de 1 a 8 para confirmar a exclusão:");
+    if(senha === "12345678") {
+        let perfis = getPerfisSalvos();
+        perfis = perfis.filter(p => p.id !== id);
+        localStorage.setItem('cbmpe_perfis_salvos', JSON.stringify(perfis));
+        
+        if(id === MEU_ID_USUARIO) {
+            alert("O perfil que você estava usando foi excluído. Faça login novamente.");
+            localStorage.removeItem('cbmpe_meu_id');
+            localStorage.removeItem('cbmpe_nome_usuario');
+            MEU_ID_USUARIO = '';
+            window.location.reload();
+        } else {
+            alert("Perfil secundário excluído com sucesso.");
+            carregarDadosPerfil(); // Atualiza a tela sem recarregar
+        }
+    } else {
+        if(senha !== null) alert("❌ Senha incorreta. Exclusão cancelada.");
+    }
+}
+
+// Atualização da criação de contas para suportar múltiplos cadastros
+function salvarConfigInicial() {
+  let nome = document.getElementById('setup-input-nome').value.trim();
+  let id = document.getElementById('setup-input-id').value.trim().toLowerCase().replace(/\s+/g, '_');
+  if(!nome || !id) { alert("Por favor, preencha o seu nome e o ID único."); return; }
+
+  // Se já havia um usuário logado, salva os dados dele na nuvem antes de criar/entrar no novo
+  if(MEU_ID_USUARIO) {
+      saveStateLocallyOnly();
+      salvarProgressoIndividualNaNuvem();
+  }
+
+  localStorage.setItem('cbmpe_nome_usuario', nome);
+  localStorage.setItem('cbmpe_meu_id', id);
+  MEU_ID_USUARIO = id;
+
+  // Registra no catálogo de contas salvas
+  let perfis = JSON.parse(localStorage.getItem('cbmpe_perfis_salvos')) || [];
+  if(!perfis.some(p => p.id === id)) {
+      perfis.push({ id: id, nome: nome });
+      localStorage.setItem('cbmpe_perfis_salvos', JSON.stringify(perfis));
+  }
+
+  document.getElementById('modal-login-inicial').style.display = 'none';
+  document.getElementById('setup-input-nome').value = '';
+  document.getElementById('setup-input-id').value = '';
+  
+  // Esvazia os dados locais para receber o histórico da nova conta
+  progress = {}; customMeta = {}; cadernoAcertos = []; cadernoErros = [];
+  temposTopicos = {}; datasTopicos = {}; historicoCiclos = []; cicloAtualNum = 1;
+  
+  baixarDadosDaNuvem().then(() => {
+      if(document.getElementById('view-perfil').style.display === 'block') {
+          carregarDadosPerfil();
+      }
+  });
 }
 
 function salvarConfigInicial() {
@@ -746,24 +924,57 @@ function isQuestionArchived(qId) {
   return cadernoAcertos.some(x => x.id === qId) || cadernoErros.some(x => x.id === qId);
 }
 
-function updateGlobalStats() {
-  let totFeitas = 0, totAcertos = 0, totConc = 0, totTopicos = 0;
-  let poolGeral = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+function obterTotaisSeguros(poolArray) {
+  let idsValidos = new Set();
   
-  poolGeral.forEach(item => {
-    if (item.dia <= 6) {
-      totTopicos++;
-      let stats = getTopicStats(item.id);
-      totFeitas += stats.feitas;
-      totAcertos += stats.acertos;
-      if (stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta)) totConc++;
+  // Recolhe os IDs do contexto atual e os seus equivalentes
+  poolArray.forEach(item => {
+    idsValidos.add(item.id);
+    if(item.equivalente_id) {
+      [...EDITAL_CBMPE, ...EDITAL_CBMGO]
+        .filter(e => e.equivalente_id === item.equivalente_id)
+        .forEach(e => idsValidos.add(e.id));
     }
   });
-  document.getElementById('hub-pct').innerText = (totFeitas > 0 ? Math.round((totAcertos / totFeitas) * 100) : 0) + '%';
-  document.getElementById('hub-feitas').innerText = totFeitas;
-  document.getElementById('hub-topicos').innerText = `${totConc}/${totTopicos}`;
+
+  // Conta usando Set para garantir que NENHUMA questão é contada em dobro
+  let unicosAcertos = new Set();
+  let unicosErros = new Set();
+  
+  cadernoAcertos.forEach(q => { if(idsValidos.has(q.topico_id)) unicosAcertos.add(q.id); });
+  cadernoErros.forEach(q => { if(idsValidos.has(q.topico_id) && !unicosAcertos.has(q.id)) unicosErros.add(q.id); });
+  
+  return {
+    feitas: unicosAcertos.size + unicosErros.size,
+    acertos: unicosAcertos.size,
+    erros: unicosErros.size
+  };
 }
 
+function updateGlobalStats() {
+  let totConc = 0, totTopicos = 0;
+  // Utiliza estritamente o edital ativo, sem combinar arrays de outros concursos
+  let poolAtivo = EDITAL_ALL; 
+
+  poolAtivo.forEach(item => {
+    if (item.dia <= 6) {
+      totTopicos++;
+      // A função getTopicStats já lida com os cruzamentos e retira os dados corretos
+      let stats = getTopicStats(item.id);
+      if (stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta)) {
+          totConc++;
+      }
+    }
+  });
+
+  // Calcula estatísticas estritas para o pool do edital em visualização
+  let statsSeguras = calcularStatsSeguras(poolAtivo.filter(x => x.dia <= 6));
+  let pctGlobal = statsSeguras.feitas > 0 ? Math.round((statsSeguras.acertos / statsSeguras.feitas) * 100) : 0;
+  
+  document.getElementById('hub-pct').innerText = pctGlobal + '%';
+  document.getElementById('hub-feitas').innerText = statsSeguras.feitas;
+  document.getElementById('hub-topicos').innerText = `${totConc}/${totTopicos}`;
+}
 function hideAllViews() {
   if(document.getElementById('view-quiz') && document.getElementById('view-quiz').style.display === 'block') {
     if(quizTimerInterval) clearInterval(quizTimerInterval);
@@ -774,8 +985,9 @@ function hideAllViews() {
     }
   }
 
-  ['view-trilha','view-materias','view-cadernos','view-topicos','view-backup','view-revisao','view-simulado','view-ranking','view-perfil','view-relatorio','view-quiz'].forEach(id => {
-    document.getElementById(id).style.display = 'none';
+  ['view-trilha','view-materias','view-cadernos','view-topicos','view-backup','view-revisao','view-simulado','view-calendario','view-ranking','view-perfil','view-relatorio','view-quiz'].forEach(id => {
+    let el = document.getElementById(id);
+    if(el) el.style.display = 'none';
   });
   document.getElementById('content-topicos').innerHTML = '';
 }
@@ -806,6 +1018,7 @@ function showMainView(viewName) {
   else if (viewName === 'backup') { document.getElementById('view-backup').style.display = 'block'; }
   else if (viewName === 'revisao') { document.getElementById('view-revisao').style.display = 'block'; renderRev(); }
   else if (viewName === 'simulado') { document.getElementById('view-simulado').style.display = 'block'; initSimuladoSetup(); }
+  else if (viewName === 'calendario') { document.getElementById('view-calendario').style.display = 'block'; renderCalendario(); }
   else if (viewName === 'ranking') { document.getElementById('view-ranking').style.display = 'block'; renderizarRankingOnline(); }
   else if (viewName === 'perfil') { document.getElementById('view-perfil').style.display = 'block'; carregarDadosPerfil(); }
   else if (viewName === 'relatorio') { document.getElementById('view-relatorio').style.display = 'block'; renderRel(); }
@@ -951,21 +1164,26 @@ function renderTrail() {
 }
 
 function renderMateriasGrid() {
-  let pool = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  // Trabalha estritamente com o edital ativo
+  let pool = EDITAL_ALL;
   let html = '';
+  
   SUBJECTS_META.forEach(s => {
     let items = pool.filter(x => x.disc === s.disc);
     if(items.length === 0) return; 
     
-    let feitas = 0, acertos = 0, conc = 0;
+    // Obtém as stats reais consolidadas para a matéria do edital ativo
+    let statsMat = calcularStatsSeguras(items);
+    let conc = 0;
+    
     items.forEach(item => {
-      let stats = getTopicStats(item.id);
-      feitas += stats.feitas; 
-      acertos += stats.acertos;
-      if (stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta)) conc++;
+      let tStats = getTopicStats(item.id);
+      if (tStats.feitas > 0 && (item.meta === 0 || tStats.feitas >= item.meta)) conc++;
     });
-    let pctAcerto = feitas > 0 ? Math.round((acertos / feitas) * 100) : 0;
+
+    let pctAcerto = statsMat.feitas > 0 ? Math.round((statsMat.acertos / statsMat.feitas) * 100) : 0;
     let pctProg = items.length > 0 ? Math.round((conc / items.length) * 100) : 0;
+    
     html += `
     <div class="disc-card" onclick="openDiscipline('${s.disc}')">
       <div class="disc-top">
@@ -974,16 +1192,16 @@ function renderMateriasGrid() {
       </div>
       <div class="bar-bg"><div class="bar-fill" style="width:${pctProg}%;"></div></div>
       <div class="disc-meta">
-        <span>📝 ${feitas} feitas</span>
+        <span>📝 ${statsMat.feitas} feitas</span>
         <span>🎯 ${pctAcerto}% acerto</span>
       </div>
     </div>`;
   });
+  
   document.getElementById('hub-disciplinas').innerHTML = html;
 }
 
-let currentCadernoTab = 'acertos';
-let cadernoAnswers = {};
+
 
 function popularFiltrosCaderno(listaAtual) {
   let selectMat = document.getElementById('filtro-caderno-materia');
@@ -995,12 +1213,10 @@ function popularFiltrosCaderno(listaAtual) {
   let topicoSelecionadoAntes = selectTop.value;
   let bancaSelecionadaAntes = selectBanca.value;
 
-  // Preenche Matérias
   let materiasUnicas = [...new Set(listaAtual.map(q => q.materia))].filter(Boolean);
   selectMat.innerHTML = `<option value="">Todas</option>` + 
     materiasUnicas.map(m => `<option value="${m}" ${m === materiaSelecionadaAntes ? 'selected' : ''}>${m}</option>`).join('');
 
-  // Preenche Bancas
   let bancasUnicas = [...new Set(listaAtual.map(q => q.banca))].filter(Boolean);
   selectBanca.innerHTML = `<option value="">Todas</option>` + 
     bancasUnicas.map(bancaVal => `<option value="${bancaVal}" ${bancaVal === bancaSelecionadaAntes ? 'selected' : ''}>${bancaVal}</option>`).join('');
@@ -1252,7 +1468,6 @@ function checarNovaBanca(selectEl) {
 }
 
 function abrirModalEditarQuestaoId(qId) {
-  // 1. Procura primeiro na lista ativa do Quiz, depois nos Cadernos locais
   let q = (typeof quizList !== 'undefined' ? quizList.find(x => x.id === qId) : null)
        || cadernoAcertos.find(x => x.id === qId) 
        || cadernoErros.find(x => x.id === qId);
@@ -1307,7 +1522,6 @@ async function salvarQuestaoEditada() {
   };
 
   try {
-    // 1. Atualiza no Supabase
     await fetch(`${SUPABASE_URL}/rest/v1/questoes?id=eq.${qId}`, {
       method: 'PATCH',
       headers: { 
@@ -1319,7 +1533,6 @@ async function salvarQuestaoEditada() {
       body: JSON.stringify(qDataUpdate)
     });
 
-    // 2. Atualiza os dados em memória (Quiz e Cadernos) sem precisar deslogar ou recarregar a página
     if (typeof quizList !== 'undefined') {
       let itemQuiz = quizList.find(x => x.id === qId);
       if (itemQuiz) {
@@ -1350,7 +1563,6 @@ async function salvarQuestaoEditada() {
     fecharModalEditarQuestao();
     alert("✅ Questão atualizada com sucesso!");
 
-    // 3. Atualiza a tela em que você estiver
     if (document.getElementById('view-quiz').style.display === 'block') {
       renderQuizView();
     } else if (document.getElementById('view-cadernos').style.display === 'block') {
@@ -1388,7 +1600,7 @@ function renderFilteredTopics() {
     ? EDITAL_ALL.filter(x => x.dia === CURRENT_FILTER.val)
     : EDITAL_ALL.filter(x => x.disc === CURRENT_FILTER.val);
   document.getElementById('content-topicos').innerHTML = items.map(item => createCard(item)).join('');
-renderizarMatematica();
+  renderizarMatematica();
 }
 
 
@@ -1403,6 +1615,7 @@ function resetTopic(id) {
     cadernoAcertos = cadernoAcertos.filter(q => q.topico_id !== id);
     cadernoErros = cadernoErros.filter(q => q.topico_id !== id);
     delete temposTopicos[id];
+    delete datasTopicos[id];
     saveState();
   }
 }
@@ -1410,48 +1623,76 @@ function resetTopic(id) {
 function createCard(item) {
   let stats = getTopicStats(item.id);
   let p = getP(item.id);
-  let status = stats.feitas > 0 ? ((item.meta === 0 || stats.feitas >= item.meta) ? 'Concluído' : 'Andamento') : 'Pendente';
+  let isConcluido = stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta);
+  let status = isConcluido ? 'Concluído' : (stats.feitas > 0 ? 'Andamento' : 'Pendente');
   let pctColor = stats.feitas === 0 ? 'var(--ink-soft)' : (stats.pct >= 80 ? 'var(--green)' : (stats.pct >= 60 ? 'var(--brass)' : 'var(--red)'));
-  let statusCls = status === 'Pendente' ? 'status-pend' : (status === 'Concluído' ? 'status-and' : 'status-and');
+  let statusCls = isConcluido ? 'status-conc' : (stats.feitas > 0 ? 'status-and' : 'status-pend');
   
-let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
   let idsValidosRes = [item.id];
   if (item.equivalente_id) {
     idsValidosRes = poolEd.filter(e => e.equivalente_id === item.equivalente_id).map(e => e.id);
   }
-let labelBtnQuestao = "📝 Questões";
-let teoriaHtml = DB_TEORIA[item.id] || `<h4>📖 Nenhum resumo cadastrado</h4><p>Clique em Editar Resumo para adicionar.</p>`;
+  let teoriaHtml = DB_TEORIA[item.id] || `<h4>📖 Nenhum resumo cadastrado</h4><p>Clique em Editar Resumo para adicionar.</p>`;
   let tempoGastoStr = temposTopicos[item.id] ? `<span class="pill" style="background:var(--card-bg2);color:var(--brass-2);">⏱️ ${formatarTempo(temposTopicos[item.id])}</span>` : '';
-// Dispara a contagem leve em segundo plano para não travar a tela
-setTimeout(() => atualizarContadorQuestoesCard(item.id, `btn-q-${item.id}`), 50);
+
+  setTimeout(() => atualizarContadorQuestoesCard(item.id, `btn-q-${item.id}`), 50);
+
+  let cardClass = isConcluido ? 'topic-card completed-topic' : 'topic-card';
+  let bodyDisplay = isConcluido ? 'none' : 'block';
+  let metaText = item.meta > 0 ? `${stats.feitas} questões feitas de ${item.meta} (Meta)` : `${stats.feitas} questões feitas`;
+  let metaPct = item.meta > 0 ? Math.min(100, Math.round((stats.feitas / item.meta) * 100)) : (stats.feitas > 0 ? 100 : 0);
+
   return `
-  <div class="topic-card">
+  <div class="${cardClass}">
     <div class="topic-head">
       <span class="pill pill-disc">ID #${item.id} • ${item.disc} (Dia ${item.dia})</span>
       <div style="display:flex;gap:6px;align-items:center;">
         ${tempoGastoStr}
         <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;margin:0;" onclick="resetTopic(${item.id})">🔄 Resetar</button>
         <span class="pill ${statusCls}">${status}</span>
+        <button class="btn" style="padding:2px 8px;font-size:11px;margin:0;background:var(--card-bg2);" onclick="toggleTopicBody(${item.id})">↕ Expandir/Minimizar</button>
       </div>
     </div>
     <div class="topic-title">${item.topico}</div>
-    <div class="action-row">
-      <button class="action-btn btn-teoria" onclick="toggleTeoria(${item.id})">📖 Ver Resumo</button>
-      <button class="action-btn" style="background:var(--card-bg2);color:var(--brass);border-color:var(--brass);" onclick="abrirModalResumo(${item.id})">✏️ Editar Resumo</button>
-<button class="action-btn btn-questoes" id="btn-q-${item.id}" onclick="openQuiz(${item.id})">📝 Questões (...)</button>      <button class="action-btn btn-importar" onclick="abrirModalImportar(${item.id})">📥 Importar JSON</button>
+    
+    <div style="margin: 10px 0 14px 0;">
+      <div style="display:flex; justify-content:space-between; font-size:11.5px; font-family:var(--mono); color:var(--ink-soft); margin-bottom:4px;">
+        <span>${metaText}</span>
+        <span>${metaPct}%</span>
+      </div>
+      <div class="bar-bg" style="height:6px; margin:0;">
+        <div class="bar-fill" style="width:${metaPct}%; background: ${isConcluido ? 'var(--green)' : 'var(--brass)'}; transition: width 0.3s ease;"></div>
+      </div>
     </div>
-    <div class="teoria-box" id="teoria-${item.id}">${teoriaHtml}</div>
-    <div class="topic-controls">
-      <div class="ctrl-group"><label>Meta</label><input type="number" class="num-input" value="${item.meta}" onchange="updateMeta(${item.id}, this.value)"></div>
-      <div class="ctrl-group"><label>Feitas</label><div class="ctrl-val">${stats.feitas}</div></div>
-      <div class="ctrl-group"><label>Acertos</label><div class="ctrl-val">${stats.acertos}</div></div>
-      <div class="ctrl-group"><label>% Acerto</label><div class="ctrl-val" style="color:${pctColor};">${stats.pct}%</div></div>
-    </div>
-    <div class="topic-footer">
-      <label class="check-rev ${p.revisar ? '' : 'off'}"><input type="checkbox" ${p.revisar ? 'checked' : ''} onchange="toggleR(${item.id})"> ⚠️ Precisa Revisar</label>
-      <input type="text" placeholder="Anotações..." value="${p.note||''}" onchange="updateNote(${item.id}, this.value)" style="flex:1;margin-left:10px;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--bg);color:var(--fg);font-size:12px;">
+
+    <div id="topic-body-${item.id}" style="display:${bodyDisplay}; border-top:1px dashed var(--line); padding-top: 14px;">
+      <div class="action-row">
+        <button class="action-btn btn-teoria" onclick="toggleTeoria(${item.id})">📖 Ver Resumo</button>
+        <button class="action-btn" style="background:var(--card-bg2);color:var(--brass);border-color:var(--brass);" onclick="abrirModalResumo(${item.id})">✏️ Editar Resumo</button>
+        <button class="action-btn btn-questoes" id="btn-q-${item.id}" onclick="openQuiz(${item.id})">📝 Questões (...)</button>
+        <button class="action-btn btn-importar" onclick="abrirModalImportar(${item.id})">📥 Importar JSON</button>
+      </div>
+      <div class="teoria-box" id="teoria-${item.id}">${teoriaHtml}</div>
+      <div class="topic-controls">
+        <div class="ctrl-group"><label>Meta</label><input type="number" class="num-input" value="${item.meta}" onchange="updateMeta(${item.id}, this.value)"></div>
+        <div class="ctrl-group"><label>Feitas</label><div class="ctrl-val">${stats.feitas}</div></div>
+        <div class="ctrl-group"><label>Acertos</label><div class="ctrl-val">${stats.acertos}</div></div>
+        <div class="ctrl-group"><label>% Acerto</label><div class="ctrl-val" style="color:${pctColor};">${stats.pct}%</div></div>
+      </div>
+      <div class="topic-footer">
+        <label class="check-rev ${p.revisar ? '' : 'off'}"><input type="checkbox" ${p.revisar ? 'checked' : ''} onchange="toggleR(${item.id})"> ⚠️ Precisa Revisar</label>
+        <input type="text" placeholder="Anotações..." value="${p.note||''}" onchange="updateNote(${item.id}, this.value)" style="flex:1;margin-left:10px;border:1px solid var(--line);border-radius:6px;padding:6px;background:var(--bg);color:var(--fg);font-size:12px;">
+      </div>
     </div>
   </div>`;
+}
+
+function toggleTopicBody(id) {
+  let el = document.getElementById('topic-body-' + id);
+  if(el) {
+    el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  }
 }
 
 function abrirModalResumo(id) {
@@ -1491,7 +1732,6 @@ async function importarEmMassaTopico() {
     let ed = poolEd.find(e => e.id === topicoId);
     let materiaPadrao = ed ? ed.disc : "Geral";
 
-    // Prepara os registros para inserir na tabela relacional 'questoes' do Supabase
     let novasQuestoesSupabase = parsed.map(q => ({
       topico_id: topicoId,
       materia: q.materia || materiaPadrao,
@@ -1503,7 +1743,6 @@ async function importarEmMassaTopico() {
       explicacao: q.expl
     }));
 
-    // Envia para o Supabase via POST
     let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes`, {
       method: 'POST',
       headers: {
@@ -1557,15 +1796,11 @@ async function excluirQuestaoQuiz(qId) {
   }
 }
 
-/* QUIZ COM CRONÔMETRO E BARRA DE PROGRESSO */
 let quizList = [], quizPos = 0, quizAnswers = {}, quizElims = {}, quizTopicoIdAtual = null;
 let quizTimerSeconds = 0, quizTimerInterval = null, quizIsPaused = false;
 
 function getElim(id) { if(!quizElims[id]) quizElims[id]=new Set(); return quizElims[id]; }
 
-// =============================================================
-// NOVO OPENQUIZ POR DEMANDA (BUSCA DIRETO DO SUPABASE)
-// =============================================================
 async function openQuiz(topicoId) {
   let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
   let itemAtual = poolEd.find(e => e.id === topicoId);
@@ -1578,7 +1813,6 @@ async function openQuiz(topicoId) {
   }
 
   try {
-    // Mostra um aviso rápido ou indicador se desejar
     let idsQuery = idsParaBuscar.join(',');
     let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes?topico_id=in.(${idsQuery})&select=*`, {
       method: 'GET',
@@ -1590,7 +1824,6 @@ async function openQuiz(topicoId) {
     
     let dadosSupabase = await res.json();
     
-    // Mapeia os dados do Supabase para o formato que o seu quiz lê
     let questoesDoTopico = (dadosSupabase || []).map(q => ({
       id: q.id,
       topico_id: q.topico_id,
@@ -1603,7 +1836,6 @@ async function openQuiz(topicoId) {
       expl: q.explicacao
     }));
 
-    // Filtra as questões que já foram arquivadas nos cadernos locais do usuário
     quizList = questoesDoTopico.filter(q => !isQuestionArchived(q.id));
 
   } catch (e) {
@@ -1684,14 +1916,20 @@ function selectQOpt(id, idx) {
   const q = quizList.find(x => x.id === id);
   const correct = (idx === q.correct);
   
-  // Define um motivo padrão inicial ("sabia" para acerto, "dificil" para erro)
   let motivoInicial = correct ? 'sabia' : 'dificil';
 
   quizAnswers[id] = { selected: idx, correct: correct, motivo: motivoInicial };
   let questaoArquivada = { ...q, respostaUsuario: idx, motivo: motivoInicial, tentativasErros: 1, timestamp: Date.now() };
 
-  if(correct) cadernoAcertos.unshift(questaoArquivada);
-  else cadernoErros.unshift(questaoArquivada);
+  // Removemos primeiro qualquer ocorrência anterior desta mesma questão nos cadernos para evitar duplicação
+  cadernoAcertos = cadernoAcertos.filter(item => item.id !== id);
+  cadernoErros = cadernoErros.filter(item => item.id !== id);
+
+  if(correct) {
+    cadernoAcertos.unshift(questaoArquivada);
+  } else {
+    cadernoErros.unshift(questaoArquivada);
+  }
 
   saveState();
   renderQuizView();
@@ -1767,7 +2005,6 @@ function renderQuizView() {
     return `<div class="opt-row"><button class="${cls}" onclick="selectQOpt(${q.id}, ${i})"><span class="opt-letter">${LETTERS[i]}</span>${opt}</button>${strikeBtn}</div>`;
   }).join('');
 
-  // Botão extra para mandar direto para o Caderno de Erros caso não saiba fazer
   let botaoNaoSei = (!ans || ans.selected === undefined) ? `
     <div style="margin-top: 12px; text-align: right;">
       <button class="btn btn-danger" style="font-size: 12px; padding: 6px 12px;" onclick="marcarComoNaoSoubeFazer(${q.id})">
@@ -1798,7 +2035,7 @@ function renderQuizView() {
       </div>`;
     }
   }
-let botaoNivel4 = (ans && ans.selected !== undefined) ? `
+  let botaoNivel4 = (ans && ans.selected !== undefined) ? `
     <div style="margin-top: 10px;">
       <button class="btn" style="background:#3E1C38; color:#FF79C6; border-color:#FF79C6; font-size:11.5px; padding:4px 10px;" onclick="tornarQuestaoImpossivel(${q.id})">
         🔥 Marcar como Nível 4 (Impossível)
@@ -1846,11 +2083,11 @@ let botaoNivel4 = (ans && ans.selected !== undefined) ? `
         <button class="btn btn-primary" onclick="qNext()">${quizPos === quizList.length-1 ? '🏁 Concluir' : 'Próxima →'}</button>
       </div>
     </div>`;
-    renderizarMatematica();
+  renderizarMatematica();
 }
+
 function marcarComoNaoSoubeFazer(id) {
   const q = quizList.find(x => x.id === id);
-  // Simula que o usuário escolheu uma alternativa errada para cair no erro
   let alternativaFalsa = (q.correct === 0) ? 1 : 0;
   
   quizAnswers[id] = { selected: alternativaFalsa, correct: false, motivo: 'dificil' };
@@ -1921,6 +2158,98 @@ function renderRel() {
     </div>`;
 }
 
+function renderCalendario() {
+  // Descobre todos os ciclos registrados (em andamento ou concluídos)
+  let ciclos = new Set();
+  for(let i = 1; i <= cicloAtualNum; i++) ciclos.add(i);
+  
+  historicoCiclos.forEach(hc => ciclos.add(hc.ciclo));
+  Object.values(datasTopicos).forEach(dt => { if(dt.ciclo) ciclos.add(dt.ciclo); });
+
+  let html = `
+  <div class="topic-card">
+    <h2 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📅 Meus Ciclos de Estudo</h2>
+    <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">Selecione um ciclo abaixo para ver os dias e as datas de realização dos tópicos.</p>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">`;
+  
+  Array.from(ciclos).sort((a,b) => a - b).forEach(c => {
+      let isAtual = c === cicloAtualNum;
+      html += `<button class="btn btn-primary" style="${isAtual ? 'background:var(--brass);border-color:var(--brass);' : 'background:var(--navy);'}" onclick="abrirCicloCalendario(${c})">🔄 Ciclo ${c} ${isAtual ? '(Atual)' : ''}</button>`;
+  });
+  
+  html += `</div></div><div id="calendario-detalhes"></div>`;
+  document.getElementById('content-calendario').innerHTML = html;
+}
+
+function abrirCicloCalendario(ciclo) {
+  let html = `
+  <div class="topic-card" style="margin-top:16px; border-top:4px solid var(--brass);">
+     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+         <h3 style="margin:0; color:var(--brass-2); font-family:var(--serif);">📅 Dias do Ciclo ${ciclo}</h3>
+         <button class="btn" onclick="renderCalendario()">⬅ Voltar para Ciclos</button>
+     </div>
+     <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">`;
+     
+  for(let d = 1; d <= 7; d++) {
+      html += `<button class="btn btn-primary" style="background:var(--navy);" onclick="abrirDiaCalendario(${ciclo}, ${d})">Dia ${d}</button>`;
+  }
+  html += `</div></div><div id="calendario-dia-detalhes"></div>`;
+  
+  document.getElementById('calendario-detalhes').innerHTML = html;
+}
+
+function abrirDiaCalendario(ciclo, dia) {
+  let poolGeral = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  let topicosDoDia = poolGeral.filter(t => t.dia === dia);
+  let hasData = false;
+  
+  let html = `
+  <div class="topic-card" style="margin-top:16px; border-top:4px solid var(--green);">
+     <h4 style="margin-top:0; color:var(--brass-2); font-family:var(--serif); font-size:18px;">Tópicos do Dia ${dia} (Ciclo ${ciclo})</h4>
+     <div style="overflow-x:auto;">
+       <table style="width:100%; border-collapse:collapse; text-align:left; font-size:13px; min-width:500px;">
+         <thead>
+           <tr style="border-bottom:2px solid var(--line); color:var(--ink-soft); font-family:var(--mono); text-transform:uppercase; font-size:11px;">
+             <th style="padding:10px;">Matéria</th>
+             <th style="padding:10px;">Tópico</th>
+             <th style="padding:10px;">Início</th>
+             <th style="padding:10px;">Término</th>
+           </tr>
+         </thead>
+         <tbody>`;
+  
+  topicosDoDia.forEach(item => {
+      let dt = datasTopicos[item.id];
+      if(dt && dt.ciclo === ciclo) {
+          hasData = true;
+          let fimFormatado = dt.end ? formatDataBr(dt.end) : '<span style="color:var(--brass);">⏳ Em Andamento</span>';
+          html += `
+          <tr style="border-bottom:1px solid var(--line);">
+            <td style="padding:10px; font-weight:600;">${item.disc}</td>
+            <td style="padding:10px;">${item.topico}</td>
+            <td style="padding:10px;">${formatDataBr(dt.start)}</td>
+            <td style="padding:10px; font-weight:bold; color:${dt.end ? 'var(--green)' : 'inherit'};">${fimFormatado}</td>
+          </tr>`;
+      }
+  });
+  
+  if(!hasData) {
+      html += `<tr><td colspan="4" style="padding:20px; text-align:center; color:var(--ink-soft);">Nenhum tópico iniciado no Dia ${dia} do Ciclo ${ciclo}.</td></tr>`;
+  }
+  
+  html += `</tbody></table></div></div>`;
+  document.getElementById('calendario-dia-detalhes').innerHTML = html;
+  
+  // Rolar a tela suavemente para a tabela
+  document.getElementById('calendario-dia-detalhes').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function formatDataBr(dataStr) {
+  if(!dataStr) return '-';
+  let p = dataStr.split('-');
+  if(p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`;
+  return dataStr;
+}
+
 function toggleTheme() {
   const cur = document.documentElement.getAttribute('data-theme');
   const next = cur === 'dark' ? '' : 'dark';
@@ -1928,7 +2257,6 @@ function toggleTheme() {
   else document.documentElement.removeAttribute('data-theme');
 }
 
-/* SIMULADO */
 let simList = [], simPos = 0, simAnswers = {}, simFinished = false;
 function initSimuladoSetup() {
   let pool = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
@@ -2012,19 +2340,17 @@ async function atualizarContadorQuestoesCard(topicoId, elementoId) {
 
   try {
     let idsQuery = idsParaBuscar.join(',');
-    // Pede apenas a contagem ao Supabase sem trafegar o texto das questões (extremamente rápido e leve)
     let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes?topico_id=in.(${idsQuery})&select=id`, {
       method: 'GET',
       headers: { 
         'apikey': SUPABASE_ANON_KEY, 
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        'Range': '0-999' // Garante pegar até 1000 IDs para contagem
+        'Range': '0-999'
       }
     });
     let dados = await res.json();
     if(!Array.isArray(dados)) return;
 
-    // Filtra as que já estão no caderno de acertos ou erros do usuário
     let pendentes = dados.filter(q => !isQuestionArchived(q.id)).length;
     
     let el = document.getElementById(elementoId);
@@ -2036,23 +2362,17 @@ async function atualizarContadorQuestoesCard(topicoId, elementoId) {
   }
 }
 
-// =============================================================
-// GERENCIADOR DE EDITAIS CUSTOMIZADOS E SINCRONIZAÇÃO
-// =============================================================
 const EDITAIS_CUSTOM_KEY = 'cbmpe_editais_custom_v1';
 let editaisCustomizados = JSON.parse(localStorage.getItem(EDITAIS_CUSTOM_KEY)) || [];
 
-// Modifica a função carregarEdital nativa para suportar os customizados
 const _carregarEditalOriginal = carregarEdital;
 carregarEdital = function() {
   if(CURSO_ATUAL === 'CBMPE' || CURSO_ATUAL === 'CBMGO') {
     _carregarEditalOriginal();
   } else {
-    // Busca nos editais customizados
     let editalCustom = editaisCustomizados.find(e => e.id === CURSO_ATUAL);
     if(editalCustom) {
       EDITAL_ALL = editalCustom.topicos;
-      // Recria dinamicamente os títulos dos dias
       DAY_TITLES = {};
       for(let i=1; i<=7; i++) DAY_TITLES[i] = `Dia ${i} — ${editalCustom.titulo}`;
       
@@ -2085,7 +2405,6 @@ function renderizarBotoesEditais() {
   container.innerHTML = html;
 }
 
-// Chame isso após a página carregar
 setTimeout(renderizarBotoesEditais, 500);
 
 function abrirGerenciadorEditais() {
@@ -2121,7 +2440,7 @@ function salvarNovoEdital() {
 
   let linhas = rawPlanilha.split('\n');
   let topicos = [];
-  let nextId = Date.now(); // Gera IDs únicos para os novos tópicos
+  let nextId = Date.now();
 
   linhas.forEach(linha => {
     let colunas = linha.split('\t');
@@ -2157,7 +2476,6 @@ function salvarNovoEdital() {
   renderizarBotoesEditais();
 }
 
-// ================= EDITAR TÓPICOS =================
 function popularSelectsGerenciador() {
   let options = `<option value="CBMPE">CFO CBMPE</option>
                  <option value="CBMGO">CFO CBMGO</option>`;
@@ -2236,7 +2554,6 @@ function salvarEditalAposEdicao(editalId) {
   if(editalId.startsWith('EDITAL_')) {
     localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
   } else {
-    // Para CBMPE e CBMGO nativos, salva no cache customizado para persistir recarregamentos
     let chaveCache = editalId === 'CBMPE' ? 'cbmpe_cache_v1' : 'cbmgo_cache_v1';
     localStorage.setItem(chaveCache, JSON.stringify(obterArrayEditalPorId(editalId)));
   }
@@ -2253,7 +2570,6 @@ function atualizarTopico(editalId, topicoId, campo, valor) {
   }
 }
 
-// ================= SINCRONIZAR TÓPICOS =================
 function popularTopicosSync(lado) {
   let editalId = document.getElementById(`sync-edital-${lado}`).value;
   let topicos = obterArrayEditalPorId(editalId);
@@ -2281,7 +2597,6 @@ function executarSincronizacao() {
   let topicoB = topicosB.find(t => t.id === topicoBId);
 
   if(topicoA && topicoB) {
-    // Usa o equivalente_id do Tópico A. Se não existir, cria um novo.
     let syncId = topicoA.equivalente_id;
     if(!syncId) {
       syncId = `sync_${Date.now()}`;
@@ -2294,6 +2609,6 @@ function executarSincronizacao() {
     salvarEditalAposEdicao(editalBId);
     
     alert(`✅ Tópicos vinculados com sucesso! (ID Compartilhado: ${syncId})`);
-    carregarTopicosEdicao(); // Atualiza a tela de edição para mostrar os novos IDs
+    carregarTopicosEdicao();
   }
 }
