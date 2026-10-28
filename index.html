@@ -53,6 +53,7 @@
     <button class="tab-btn" id="nav-backup" onclick="showMainView('backup')">💾 Backup</button>
     <button class="tab-btn" id="nav-revisao" onclick="showMainView('revisao')">⚠️ Revisão</button>
     <button class="tab-btn" id="nav-simulado" onclick="showMainView('simulado')">🎯 Simulado</button>
+    <button class="tab-btn" id="nav-calendario" onclick="showMainView('calendario')">📅 Calendário</button>
     <button class="tab-btn" id="nav-ranking" onclick="showMainView('ranking')">🏆 Ranking</button>
     <button class="tab-btn" id="nav-perfil" onclick="showMainView('perfil')">👤 Perfil</button>
     <button class="tab-btn" id="nav-relatorio" onclick="showMainView('relatorio')">📊 Relatório</button>
@@ -221,7 +222,10 @@
     <div id="run-simulado" style="display:none;"><div id="simulado-content"></div></div>
   </div>
 
-  <!-- VIEW 7: RANKING -->
+  <!-- VIEW 7: CALENDÁRIO -->
+  <div id="view-calendario" style="display:none;"><div id="content-calendario"></div></div>
+
+  <!-- VIEW 8: RANKING -->
   <div id="view-ranking" style="display:none;">
     <div class="topic-card" style="margin-bottom: 14px; padding: 14px;">
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
@@ -239,7 +243,7 @@
     <div id="content-ranking"></div>
   </div>
 
-  <!-- VIEW 8: PERFIL -->
+  <!-- VIEW 9: PERFIL -->
   <div id="view-perfil" style="display:none;">
     <div class="topic-card">
       <h2 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">👤 Configurar seu Perfil</h2>
@@ -257,10 +261,10 @@
     </div>
   </div>
 
-  <!-- VIEW 9: RELATÓRIO -->
+  <!-- VIEW 10: RELATÓRIO -->
   <div id="view-relatorio" style="display:none;"><div id="content-rel"></div></div>
 
-  <!-- VIEW 10: QUIZ -->
+  <!-- VIEW 11: QUIZ -->
   <div id="view-quiz" style="display:none;"><div id="content-quiz"></div></div>
 </div>
 
