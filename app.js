@@ -425,6 +425,11 @@ async function baixarDadosDaNuvem() {
       let g = jsonGlobal[0].dados;
       if(g.questoes) DB_QUESTOES_ALL = g.questoes;
       if(g.teoria) DB_TEORIA = g.teoria;
+      // NOVO: Puxa os editais customizados da nuvem de forma global
+      if(g.editais) {
+          editaisCustomizados = g.editais;
+          localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+      }
     } else {
       await salvarConteudoGlobalNaNuvem();
     }
@@ -456,20 +461,30 @@ async function baixarDadosDaNuvem() {
     if(CURSO_ATUAL) renderTrail();
     updateGlobalStats();
     enviarPlacarParaRanking();
+    
+    // Atualiza a interface caso estejamos na tela de escolha de edital
+    if(typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
   } catch (e) {
     console.error("Erro ao sincronizar:", e);
   }
 }
 
 async function salvarConteudoGlobalNaNuvem() {
-  let payload = { id: 'global', dados: { questoes: DB_QUESTOES_ALL, teoria: DB_TEORIA }, atualizado_em: new Date() };
+  let payload = { 
+    id: 'global', 
+    dados: { 
+      questoes: DB_QUESTOES_ALL, 
+      teoria: DB_TEORIA,
+      editais: editaisCustomizados // NOVO: Envia os editais customizados para todos verem
+    }, 
+    atualizado_em: new Date() 
+  };
   await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
     method: 'POST',
     headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
     body: JSON.stringify(payload)
   });
 }
-
 async function salvarProgressoIndividualNaNuvem() {
   if (!MEU_ID_USUARIO) return;
   let payload = { 
@@ -2470,7 +2485,10 @@ function salvarNovoEdital() {
   editaisCustomizados.push(novoEdital);
   localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
   
-  alert(`✅ Edital "${titulo}" adicionado com ${topicos.length} tópicos!`);
+  // NOVO: Dispara salvamento global na nuvem imediatamente
+  salvarConteudoGlobalNaNuvem();
+  
+  alert(`✅ Edital "${titulo}" adicionado com ${topicos.length} tópicos e sincronizado na Nuvem para todos!`);
   document.getElementById('input-novo-edital-titulo').value = '';
   document.getElementById('input-novo-edital-planilha').value = '';
   renderizarBotoesEditais();
@@ -2553,6 +2571,8 @@ function excluirTopico(editalId, topicoId) {
 function salvarEditalAposEdicao(editalId) {
   if(editalId.startsWith('EDITAL_')) {
     localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+    // NOVO: Sincroniza alterações na nuvem
+    salvarConteudoGlobalNaNuvem();
   } else {
     let chaveCache = editalId === 'CBMPE' ? 'cbmpe_cache_v1' : 'cbmgo_cache_v1';
     localStorage.setItem(chaveCache, JSON.stringify(obterArrayEditalPorId(editalId)));
