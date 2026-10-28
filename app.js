@@ -1253,9 +1253,11 @@ function renderMateriasGrid() {
   document.getElementById('hub-disciplinas').innerHTML = html;
 }
 
-
+let currentCadernoTab = 'acertos';
+let cadernoAnswers = {};
 
 function popularFiltrosCaderno(listaAtual) {
+  
   let selectMat = document.getElementById('filtro-caderno-materia');
   let selectTop = document.getElementById('filtro-caderno-topico');
   let selectBanca = document.getElementById('filtro-caderno-banca');
