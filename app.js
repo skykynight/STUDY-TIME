@@ -425,8 +425,9 @@ async function baixarDadosDaNuvem() {
       let g = jsonGlobal[0].dados;
       if(g.questoes) DB_QUESTOES_ALL = g.questoes;
       if(g.teoria) DB_TEORIA = g.teoria;
-      // NOVO: Puxa os editais customizados da nuvem de forma global
-      if(g.editais) {
+      
+      // Recebe os editais globais
+      if(g.editais && Array.isArray(g.editais)) {
           editaisCustomizados = g.editais;
           localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
       }
@@ -454,36 +455,66 @@ async function baixarDadosDaNuvem() {
       await salvarProgressoIndividualNaNuvem();
     }
 
-    if(CURSO_ATUAL) {
-      carregarEdital();
-    }
+    if(CURSO_ATUAL) carregarEdital();
     saveStateLocallyOnly();
     if(CURSO_ATUAL) renderTrail();
     updateGlobalStats();
     enviarPlacarParaRanking();
     
-    // Atualiza a interface caso estejamos na tela de escolha de edital
+    // Força a exibição dos novos editais na tela de Seleção
     if(typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
+
   } catch (e) {
     console.error("Erro ao sincronizar:", e);
   }
 }
 
 async function salvarConteudoGlobalNaNuvem() {
-  let payload = { 
-    id: 'global', 
-    dados: { 
-      questoes: DB_QUESTOES_ALL, 
-      teoria: DB_TEORIA,
-      editais: editaisCustomizados // NOVO: Envia os editais customizados para todos verem
-    }, 
-    atualizado_em: new Date() 
-  };
-  await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
-    method: 'POST',
-    headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-    body: JSON.stringify(payload)
-  });
+  try {
+    // 1. Puxa os dados globais mais recentes da nuvem PRIMEIRO para não apagar o que os amigos fizeram
+    let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
+      method: 'GET',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+    });
+    
+    let jsonGlobal = await resGlobal.json();
+    let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
+    
+    // 2. Mescla os editais da nuvem com os locais (se os amigos criaram editais novos)
+    let editaisNuvem = dadosNuvem.editais || [];
+    let mapEditais = new Map();
+    
+    // Junta tudo num mapa para evitar duplicação pelo ID
+    editaisNuvem.forEach(e => mapEditais.set(e.id, e));
+    editaisCustomizados.forEach(e => mapEditais.set(e.id, e));
+    
+    editaisCustomizados = Array.from(mapEditais.values());
+    localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+
+    // 3. Prepara o pacote final para enviar
+    let payload = { 
+      id: 'global', 
+      dados: { 
+        questoes: DB_QUESTOES_ALL, 
+        teoria: DB_TEORIA,
+        editais: editaisCustomizados // Garante que os editais partilhados vão juntos
+      }, 
+      atualizado_em: new Date() 
+    };
+    
+    // 4. Salva tudo em segurança
+    await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
+      method: 'POST',
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify(payload)
+    });
+    
+    // Renderiza os botões no menu inicial caso a nuvem tenha trazido algo novo
+    if(typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
+    
+  } catch (e) {
+    console.error("Erro ao salvar conteúdo global na nuvem:", e);
+  }
 }
 async function salvarProgressoIndividualNaNuvem() {
   if (!MEU_ID_USUARIO) return;
@@ -2485,10 +2516,10 @@ function salvarNovoEdital() {
   editaisCustomizados.push(novoEdital);
   localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
   
-  // NOVO: Dispara salvamento global na nuvem imediatamente
+  // DISPARA A SINCRONIZAÇÃO GERAL IMEDIATAMENTE
   salvarConteudoGlobalNaNuvem();
   
-  alert(`✅ Edital "${titulo}" adicionado com ${topicos.length} tópicos e sincronizado na Nuvem para todos!`);
+  alert(`✅ Edital "${titulo}" adicionado e enviado para a nuvem para todos os amigos!`);
   document.getElementById('input-novo-edital-titulo').value = '';
   document.getElementById('input-novo-edital-planilha').value = '';
   renderizarBotoesEditais();
@@ -2571,7 +2602,7 @@ function excluirTopico(editalId, topicoId) {
 function salvarEditalAposEdicao(editalId) {
   if(editalId.startsWith('EDITAL_')) {
     localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
-    // NOVO: Sincroniza alterações na nuvem
+    // Sincroniza qualquer alteração ou exclusão de tópicos para a nuvem
     salvarConteudoGlobalNaNuvem();
   } else {
     let chaveCache = editalId === 'CBMPE' ? 'cbmpe_cache_v1' : 'cbmgo_cache_v1';
