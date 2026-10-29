@@ -734,9 +734,12 @@ function saveState() {
 }
 
 function saveStateLocallyOnly() {
-  cadernoAcertos = Array.from(new Map(cadernoAcertos.map(item => [item.id, item])).values());
-  cadernoErros = Array.from(new Map(cadernoErros.map(item => [item.id, item])).values());
+  // O truque do reverse() garante que a versão MAIS RECENTE da questão é a que sobrevive!
+  cadernoAcertos = Array.from(new Map([...cadernoAcertos].reverse().map(item => [item.id || item.q, item])).values()).reverse();
+  cadernoErros = Array.from(new Map([...cadernoErros].reverse().map(item => [item.id || item.q, item])).values()).reverse();
+  
   checkAndUpdateStreak();
+  // ... resto do teu código continua igual para baixo
   
   let hojeStr = new Date().toISOString().split('T')[0];
   let poolGeral = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
@@ -790,6 +793,7 @@ function getPerfisSalvos() {
 }
 
 function carregarDadosPerfil() {
+  let myGeminiKey = localStorage.getItem('cbmpe_gemini_key') || '';
   let view = document.getElementById('view-perfil');
   let myName = localStorage.getItem('cbmpe_nome_usuario') || '';
   let myId = MEU_ID_USUARIO;
@@ -855,6 +859,20 @@ function carregarDadosPerfil() {
             <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="salvarPerfilUsuario()">💾 Atualizar Dados do Perfil</button>
         </div>
 
+<div class="form-group" style="margin-top:14px;">
+              <label>Nome / Apelido no Ranking:</label>
+              <input type="text" id="input-meu-nome" class="form-control" value="${myName}" placeholder="Ex: SD Silva">
+            </div>
+            <div class="form-group">
+              <label>ID Único (Supabase):</label>
+              <input type="text" id="input-meu-id" class="form-control" value="${myId}" placeholder="ramiro">
+            </div>
+            <div class="form-group">
+              <label>🔑 Chave API do Gemini (Para gerar resumos e questões):</label>
+              <input type="password" id="input-gemini-key" class="form-control" value="${myGeminiKey}" placeholder="AIzaSy...">
+            </div>
+            <button class="btn btn-primary" style="width:100%;padding:12px;margin-top:10px;" onclick="salvarPerfilUsuario()">💾 Atualizar Dados do Perfil</button>
+</div>
         <!-- NOVO: ADMINISTRAÇÃO DA NUVEM -->
         <div style="text-align:left; border-top:1px solid var(--red); padding-top:20px; margin-top:20px; background:var(--red-bg); padding:16px; border-radius:8px;">
             <h3 style="font-family:var(--serif); margin-top:0; color:var(--red);">🚨 Administrador (Apagar Contas)</h3>
@@ -1257,7 +1275,7 @@ let currentCadernoTab = 'acertos';
 let cadernoAnswers = {};
 
 function popularFiltrosCaderno(listaAtual) {
-  
+
   let selectMat = document.getElementById('filtro-caderno-materia');
   let selectTop = document.getElementById('filtro-caderno-topico');
   let selectBanca = document.getElementById('filtro-caderno-banca');
@@ -1765,11 +1783,22 @@ function salvarResumoDireto() {
   alert("✅ Resumo salvo!");
 }
 
+window._topicoIdAtual = null; // Variável global de segurança
+
 function abrirModalImportar(id) {
-  document.getElementById('imp-topico-id').innerText = id;
-  document.getElementById('imp-topico-num').value = id;
-  document.getElementById('adm-massa-texto').value = '';
-  document.getElementById('modal-importar').style.display = 'flex';
+  window._topicoIdAtual = id; // Guarda o ID de forma infalível
+  
+  let spanId = document.getElementById('imp-topico-id');
+  if(spanId) spanId.innerText = id;
+  
+  let inputNum = document.getElementById('imp-topico-num');
+  if(inputNum) inputNum.value = id;
+  
+  let caixaTexto = document.getElementById('adm-massa-texto');
+  if(caixaTexto) caixaTexto.value = '';
+  
+  let modal = document.getElementById('modal-importar');
+  if(modal) modal.style.display = 'flex';
 }
 function fecharModalImportar() { document.getElementById('modal-importar').style.display = 'none'; }
 
@@ -1782,7 +1811,8 @@ async function importarEmMassaTopico() {
     let parsed = JSON.parse(raw.replace(/^```[a-z]*\s*/i, '').replace(/\s*```$/, '').trim());
     if(!Array.isArray(parsed)) throw new Error("O formato deve ser um array JSON [...]");
     
-    let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+    // CORREÇÃO: Utilizar a função correta que já existe no final do seu app.js
+    let poolEd = getTodosTopicosGlobais(); 
     let ed = poolEd.find(e => e.id === topicoId);
     let materiaPadrao = ed ? ed.disc : "Geral";
 
@@ -2830,4 +2860,402 @@ async function excluirUsuarioNuvemDefinitivo(alvoId, alvoNome) {
     } else {
         if(senha !== null) alert("❌ Palavra-passe incorreta. Exclusão cancelada.");
     }
+}
+
+// Monitoramento inteligente de entrada e saída do app
+window.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    // 🚨 SALVAMENTO DE EMERGÊNCIA: O utilizador minimizou o app ou desligou a tela!
+    // Dispara o envio para a nuvem instantaneamente, ignorando o cronômetro de 1.5s
+    if(MEU_ID_USUARIO) {
+        console.log("App minimizado: Forçando envio imediato para a nuvem...");
+        salvarProgressoIndividualNaNuvem();
+        enviarPlacarParaRanking();
+    }
+  } 
+  else if (document.visibilityState === 'visible' && MEU_ID_USUARIO) {
+    // 🔄 ATUALIZAÇÃO AUTOMÁTICA: O utilizador voltou a olhar para a tela
+    let telaQuizAberta = document.getElementById('view-quiz') && document.getElementById('view-quiz').style.display === 'block';
+    
+    if (!telaQuizAberta) {
+       console.log("App reativado: Buscando atualizações...");
+       baixarDadosDaNuvem();
+    }
+  }
+});
+
+// Segurança extra caso o usuário feche a aba completamente de uma vez
+window.addEventListener('beforeunload', () => {
+    if(MEU_ID_USUARIO) {
+        salvarProgressoIndividualNaNuvem();
+    }
+});
+
+// ==========================================
+// SISTEMA DE META DIÁRIA (WIDGET FLUTUANTE)
+// ==========================================
+let metaDiariaQtd = parseInt(localStorage.getItem('cbmpe_meta_diaria')) || 50;
+
+function calcularProgressoDiario() {
+    let hoje = new Date();
+    let hojeAno = hoje.getFullYear();
+    let hojeMes = hoje.getMonth();
+    let hojeDia = hoje.getDate();
+    
+    let feitasHoje = 0;
+
+    let contarSeHoje = (q) => {
+        if (!q.timestamp) return false;
+        let d = new Date(q.timestamp);
+        // Compara Dia, Mês e Ano de forma isolada, à prova de fusos horários
+        return d.getDate() === hojeDia && d.getMonth() === hojeMes && d.getFullYear() === hojeAno;
+    };
+
+    feitasHoje += cadernoAcertos.filter(contarSeHoje).length;
+    feitasHoje += cadernoErros.filter(contarSeHoje).length;
+
+    return feitasHoje;
+}
+
+function inicializarWidgetMeta() {
+   if(document.getElementById('widget-meta-diaria')) return; 
+   
+   // Injeta o HTML e o CSS do widget diretamente na tela
+   let widgetHtml = `
+   <div id="widget-meta-diaria" style="position:fixed; bottom:20px; right:20px; background:var(--card-bg); border:2px solid var(--brass); border-radius:12px; padding:10px 14px; display:flex; align-items:center; gap:12px; box-shadow:0 6px 15px rgba(0,0,0,0.6); z-index:9999; cursor:pointer; transition:all 0.3s ease;" onclick="configurarMetaDiaria()" title="Clica para alterar a tua Meta Diária">
+      <div id="meta-ring" style="width:50px; height:50px; border-radius:50%; display:flex; align-items:center; justify-content:center; background: conic-gradient(var(--brass) 0%, var(--card-bg2) 0%); transition: background 0.3s;">
+        <div id="meta-inner-circle" style="width:40px; height:40px; background:var(--card-bg); border-radius:50%; display:flex; align-items:center; justify-content:center; transition:background 0.3s;">
+            <span id="meta-texto-progresso" style="font-family:var(--mono); font-size:12px; font-weight:bold; color:var(--fg);">0/0</span>
+        </div>
+      </div>
+      <div id="meta-label" style="font-family:var(--serif); font-size:16px; font-weight:bold; color:var(--brass-2);">Meta Hoje</div>
+   </div>`;
+   
+   document.body.insertAdjacentHTML('beforeend', widgetHtml);
+   atualizarWidgetMeta();
+}
+
+function atualizarWidgetMeta() {
+    let widget = document.getElementById('widget-meta-diaria');
+    if(!widget) return;
+
+    let feitasHoje = calcularProgressoDiario();
+    let ring = document.getElementById('meta-ring');
+    let inner = document.getElementById('meta-inner-circle');
+    let texto = document.getElementById('meta-texto-progresso');
+    let label = document.getElementById('meta-label');
+    
+    // Cálculo do anel (em graus/porcentagem)
+    let pct = metaDiariaQtd > 0 ? Math.min(100, Math.round((feitasHoje / metaDiariaQtd) * 100)) : 100;
+    texto.innerText = `${feitasHoje}/${metaDiariaQtd}`;
+    
+    // Animação de quando a meta é batida
+    if (feitasHoje >= metaDiariaQtd) {
+        widget.style.borderColor = 'var(--green)';
+        ring.style.background = 'var(--green)'; 
+        inner.style.background = 'var(--green)';
+        texto.style.color = '#fff';
+        label.innerText = '🔥 Meta Batida!';
+        label.style.color = 'var(--green)';
+    } else {
+        widget.style.borderColor = 'var(--brass)';
+        ring.style.background = `conic-gradient(var(--brass) ${pct}%, var(--card-bg2) 0%)`;
+        inner.style.background = 'var(--card-bg)';
+        texto.style.color = 'var(--fg)';
+        label.innerText = 'Meta Hoje';
+        label.style.color = 'var(--brass-2)';
+    }
+}
+
+function configurarMetaDiaria() {
+    let novaMeta = prompt(`🎯 DEFINE A TUA META DIÁRIA:\n\nQuantas questões planeias responder por dia? (Atual: ${metaDiariaQtd})`, metaDiariaQtd);
+    if (novaMeta !== null && !isNaN(novaMeta) && parseInt(novaMeta) > 0) {
+        metaDiariaQtd = parseInt(novaMeta);
+        localStorage.setItem('cbmpe_meta_diaria', metaDiariaQtd);
+        atualizarWidgetMeta();
+    }
+}
+
+// Inicia o widget 1 segundo após o app carregar (dá tempo de baixar os dados da nuvem)
+setTimeout(inicializarWidgetMeta, 1000);
+
+// ==========================================
+// INTEGRAÇÃO DIRETA COM A API DO GEMINI
+// ==========================================
+
+async function chamarGeminiAPI(promptText) {
+    let apiKey = localStorage.getItem('cbmpe_gemini_key');
+    if(!apiKey) {
+        alert("⚠️ Precisas de configurar a tua Chave API do Gemini na aba 'Perfil'!");
+        return null;
+    }
+
+    let selectModelo = document.getElementById('select-modelo-ia');
+    let modeloEscolhido = selectModelo ? selectModelo.value : 'gemini-1.5-flash';
+
+    try {
+        let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modeloEscolhido}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ parts: [{ text: promptText }] }],
+                generationConfig: { temperature: 0.7 }
+            })
+        });
+
+        let data = await response.json();
+        
+        if (data.error) throw new Error(data.error.message);
+        if (!data.candidates || !data.candidates[0].content) throw new Error("A IA devolveu uma resposta vazia.");
+        
+        return data.candidates[0].content.parts[0].text;
+    } catch(e) {
+        console.error("Erro detalhado da API:", e);
+        alert("Falha na IA: " + e.message);
+        return null;
+    }
+}
+
+async function gerarResumoIA() {
+    let topicoId = parseInt(document.getElementById('edit-res-id').value);
+    let poolEd = getTodosTopicosGlobais();
+    let topicoInfo = poolEd.find(t => t.id === topicoId);
+    if(!topicoInfo) return;
+
+    // Vai buscar o prompt que o utilizador editou no modal
+    let instrucoesCustomizadas = document.getElementById('prompt-custom-resumo').value;
+
+    fecharModalResumo();
+    mostrarNotificacao(`A gerar resumo para: <b>${topicoInfo.topico}</b>...`, 'info');
+
+    try {
+        // Junta o tema do tópico com as instruções da caixa de texto
+        let promptFinal = `Tema obrigatório: "${topicoInfo.disc} - ${topicoInfo.topico}"\n\n${instrucoesCustomizadas}`;
+
+        let resposta = await chamarGeminiAPI(promptFinal);
+        
+        if(resposta) {
+            resposta = resposta.replace(/^```html\s*/i, '').replace(/\s*```$/i, '').trim();
+            DB_TEORIA[topicoId] = resposta;
+            saveState();
+            
+            if(document.getElementById('view-topicos').style.display === 'block') {
+                renderFilteredTopics();
+            }
+            mostrarNotificacao("Resumo gerado e salvo automaticamente!", "sucesso");
+        }
+    } catch (erro) {
+        console.error("Erro interno ao gerar resumo:", erro);
+        mostrarNotificacao("Ocorreu um erro ao gerar o resumo.", "erro");
+    }
+}
+
+window.gerarQuestoesIA = async function gerarQuestoesIA() {
+    let inputTopico = document.getElementById('imp-topico-num');
+    let spanTopico = document.getElementById('imp-topico-id');
+    
+    let topicoId = window._topicoIdAtual 
+                || (inputTopico ? parseInt(inputTopico.value) : null) 
+                || (spanTopico ? parseInt(spanTopico.innerText) : null);
+    
+    if (!topicoId || isNaN(topicoId)) {
+        mostrarNotificacao("Erro: Nenhum tópico selecionado.", "erro");
+        return;
+    }
+
+    let poolEd = getTodosTopicosGlobais();
+    let topicoInfo = poolEd.find(t => Number(t.id) === Number(topicoId));
+    
+    if(!topicoInfo) {
+        mostrarNotificacao("Tópico ativo não encontrado na base de dados.", "erro");
+        return;
+    }
+
+    let instrucoesCustomizadas = document.getElementById('prompt-custom-questoes').value;
+
+    fecharModalImportar();
+    mostrarNotificacao(`A criar questões para: <b>${topicoInfo.topico}</b>...`, 'info');
+
+    try {
+        let promptFinal = `Tema obrigatório: "${topicoInfo.disc} - ${topicoInfo.topico}".\n\nInstruções de Geração:\n${instrucoesCustomizadas}`;
+        let resposta = await chamarGeminiAPI(promptFinal);
+        
+        if (resposta) {
+            let raw = resposta.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+            let parsed = JSON.parse(raw);
+            
+            if(!Array.isArray(parsed)) throw new Error("Formato inválido.");
+
+            let materiaPadrao = topicoInfo.disc || "Geral";
+
+            let novasQuestoesSupabase = parsed.map(q => ({
+                topico_id: topicoId,
+                materia: q.materia || materiaPadrao,
+                banca: q.banca || "AOCP",
+                nivel: q.nivel ?? 2,
+                enunciado: q.q,
+                alternativas: q.opts,
+                gabarito: q.correct,
+                explicacao: q.expl
+            }));
+
+            let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes`, {
+                method: 'POST',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(novasQuestoesSupabase)
+            });
+
+            if (!res.ok) throw new Error("Erro no banco de dados.");
+
+            if(document.getElementById('view-topicos').style.display === 'block') {
+                renderFilteredTopics();
+            }
+            mostrarNotificacao("5 Questões criadas e importadas com sucesso!", "sucesso");
+        }
+    } catch (erro) {
+        console.error("Erro no gerarQuestoesIA:", erro);
+        mostrarNotificacao("Erro ao comunicar com a IA e importar as questões.", "erro");
+    }
+}
+// ==========================================
+// FUNÇÃO DE SALVAR O PERFIL (ATUALIZADA COM CHAVE API)
+// ==========================================
+function salvarPerfilUsuario() {
+  // Vai buscar os valores das caixas de texto
+  let novoNome = document.getElementById('input-meu-nome').value.trim();
+  let novoId = document.getElementById('input-meu-id').value.trim().toLowerCase().replace(/\s+/g, '_');
+  
+  // Tenta ir buscar a chave da API (se a caixa de texto existir)
+  let inputChave = document.getElementById('input-gemini-key');
+  let novaChave = inputChave ? inputChave.value.trim() : ''; 
+  
+  if(!novoNome || !novoId) { 
+      alert("Preencha todos os campos obrigatórios (Nome e ID)!"); 
+      return; 
+  }
+
+  // Guarda no LocalStorage do navegador
+  localStorage.setItem('cbmpe_nome_usuario', novoNome);
+  MEU_ID_USUARIO = novoId;
+  localStorage.setItem('cbmpe_meu_id', MEU_ID_USUARIO);
+  
+  if (inputChave) {
+      localStorage.setItem('cbmpe_gemini_key', novaChave);
+  }
+
+  alert("✅ Perfil e Chave API salvos com sucesso!");
+  baixarDadosDaNuvem();
+  showMainView('trilha');
+}
+
+async function tentarGerarComIAForcado() {
+    console.log("⚡ Botão acionado por chamada direta!");
+
+    let inputTopico = document.getElementById('imp-topico-num');
+    let topicoId = inputTopico ? parseInt(inputTopico.value) : null;
+
+    if (!topicoId || isNaN(topicoId)) {
+        alert("⚠️ Erro crítico: Nenhum ID de tópico foi encontrado no modal!");
+        return;
+    }
+
+    // Procura o tópico em todas as fontes possíveis do edital ativo ou customizado
+    let poolEd = [...(typeof EDITAL_CBMPE !== 'undefined' ? EDITAL_CBMPE : []), ...(typeof EDITAL_CBMGO !== 'undefined' ? EDITAL_CBMGO : []), ...(typeof EDITAL_ALL !== 'undefined' ? EDITAL_ALL : [])];
+    if (typeof editaisCustomizados !== 'undefined') {
+        editaisCustomizados.forEach(ed => {
+            if (ed.topicos && Array.isArray(ed.topicos)) poolEd = poolEd.concat(ed.topicos);
+        });
+    }
+
+    let topicoInfo = poolEd.find(t => t.id === topicoId);
+
+    if(!topicoInfo) {
+        alert("⚠️ Tópico ID " + topicoId + " não foi localizado na memória dos editais.");
+        return;
+    }
+
+    let promptEl = document.getElementById('prompt-custom-questoes');
+    let instrucoesCustomizadas = promptEl ? promptEl.value : "Crie 5 questões.";
+    let promptFinal = `Tema obrigatório: "${topicoInfo.disc} - ${topicoInfo.topico}".\n\nInstruções de Geração:\n${instrucoesCustomizadas}`;
+
+    alert("A contactar a IA para o tópico: " + topicoInfo.topico);
+
+    let resposta = await chamarGeminiAPI(promptFinal);
+    if (resposta) {
+        resposta = resposta.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+        let caixaTexto = document.getElementById('adm-massa-texto');
+        if (caixaTexto) {
+            caixaTexto.value = resposta;
+            alert("✅ Questões geradas com sucesso!");
+        }
+    }
+}
+
+
+
+function getTodosTopicosGlobais() {
+    let pool = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+    if (typeof editaisCustomizados !== 'undefined') {
+        editaisCustomizados.forEach(ed => {
+            if (ed.topicos) pool = pool.concat(ed.topicos);
+        });
+    }
+    return pool;
+}
+
+function mostrarNotificacao(mensagem, tipo = 'sucesso') {
+    // 1. Cria o container no canto superior direito se ele não existir
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed; top:70px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:10px; pointer-events:none;';
+        document.body.appendChild(container);
+    }
+
+    // 2. Configura as cores e ícones baseados no tipo da notificação
+    let corBorda = tipo === 'sucesso' ? 'var(--green)' : (tipo === 'erro' ? 'var(--red)' : 'var(--brass)');
+    let icone = tipo === 'sucesso' ? '✅' : (tipo === 'erro' ? '❌' : '⏳');
+
+    // 3. Cria o elemento da notificação com o design do seu app
+    let toast = document.createElement('div');
+    toast.style.cssText = `
+        background: var(--card-bg);
+        border-left: 4px solid ${corBorda};
+        border-radius: 8px;
+        box-shadow: 0 6px 16px rgba(0,0,0,0.4);
+        padding: 12px 16px;
+        color: var(--fg);
+        font-family: var(--sans);
+        font-size: 13.5px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        opacity: 0;
+        transform: translateX(100%);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        max-width: 320px;
+        pointer-events: auto;
+    `;
+
+    toast.innerHTML = `<span style="font-size:18px;">${icone}</span> <span style="line-height:1.4;">${mensagem}</span>`;
+    container.appendChild(toast);
+
+    // 4. Anima a entrada
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(0)';
+    });
+
+    // 5. Remove automaticamente após 4 segundos
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
 }
