@@ -284,12 +284,37 @@
   <div class="modal-card">
     <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📖 Editar Resumo Teórico (HTML)</h3>
     <input type="hidden" id="edit-res-id">
-    <div class="form-group">
-      <textarea id="edit-res-texto" class="form-control" style="min-height:220px;" placeholder="<h4>Título...</h4><p>Conteúdo...</p>"></textarea>
+    
+    <!-- NOVA CAIXA DE PROMPT PARA O RESUMO -->
+    <div class="form-group" style="margin-bottom: 15px;">
+      <label style="color:var(--brass); font-weight:bold;">🛠️ Instruções para a IA (Prompt):</label>
+      <textarea id="prompt-custom-resumo" class="form-control" style="height:140px; font-size:12.5px; font-family:var(--mono); resize:vertical; background:var(--card-bg2); color:var(--fg); padding:10px; border:1px solid var(--border);">Atue como um criador e especialista em resumos teóricos aprofundados para concursos públicos militares de alto nível.
+
+Siga rigorosamente estas diretrizes:
+1. Formato de Saída:
+- Entregue a resposta formatada exclusivamente em código HTML (dentro de um bloco de código html). Não gere JSON.
+
+2. Estrutura e Tags HTML:
+- Utilize <h4> para os títulos e seções principais, acompanhados de emojis.
+- Organize o conteúdo em listas (<ul> e <li>).
+- Destaque conceitos-chave, termos e regras em negrito (<b>termo</b>).
+- Insira seções para "Pegadinhas de Prova", "Diferenças Cruciais" e exemplos.
+
+3. Exatas: Utilize LaTeX renderizado entre $ (inline) ou $$ (display).
+
+ATENÇÃO: Retorne APENAS o resumo em HTML agora, sem mensagens de confirmação.</textarea>
     </div>
+
+    <!-- CAIXA DO RESULTADO -->
+    <div class="form-group">
+      <label>Conteúdo Atual do Resumo (HTML):</label>
+      <textarea id="edit-res-texto" class="form-control" style="min-height:120px;" placeholder="<h4>Título...</h4><p>Conteúdo...</p>"></textarea>
+    </div>
+    
     <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" style="background:#2B4C7E;color:#fff;border:none;margin-right:auto;" onclick="gerarResumoIA()">✨ Gerar em 2º Plano</button>
       <button class="btn" onclick="fecharModalResumo()">Cancelar</button>
-      <button class="btn btn-primary" onclick="salvarResumoDireto()">💾 Salvar Resumo</button>
+      <button class="btn btn-primary" onclick="salvarResumoDireto()">💾 Salvar Manualmente</button>
     </div>
   </div>
 </div>
@@ -355,19 +380,57 @@
   </div>
 </div>
 
+
 <!-- MODAL PARA IMPORTAÇÃO EM MASSA -->
-<div id="modal-importar" class="modal-overlay" style="display:none;">
-  <div class="modal-card">
-    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">📥 Importação em Massa (Tópico <span id="imp-topico-id"></span>)</h3>
-    <p style="font-size:13px;color:var(--ink-soft);">Cole aqui as questões em JSON para este tópico específico:</p>
+<div id="modal-importar" style="display:none; position:fixed; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center; padding:20px;">
+  <div class="topic-card" style="width:100%; max-width:700px; padding:20px; position:relative; display:flex; flex-direction:column; max-height:90vh;">
+    
+    <h3 style="margin-top:0; color:var(--brass-2); font-family:var(--serif);" id="imp-titulo">📥 Importação em Massa</h3>
+
+    <span id="imp-topico-id" style="display:none;"></span>
     <input type="hidden" id="imp-topico-num">
-    <div class="form-group">
-      <textarea id="adm-massa-texto" class="form-control" style="min-height: 180px;" placeholder='[ { "banca": "AOCP", "nivel": 2, "q": "...", "opts": ["..."], "correct": 2, "expl": "..." } ]'></textarea>
+    
+    <!-- SELETOR DE MODELO DA IA -->
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label style="color:var(--brass); font-weight:bold;">⚡ Modelo da IA:</label>
+      <select id="select-modelo-ia" class="form-control" style="font-size:13px;">
+        <option value="gemini-3.8-flash" selected>🚀 Gemini 1.5 Flash (Ultrarrápido e Ideal)</option>
+        <option value="gemini-2.5-pro">🧠 Gemini 1.5 Pro (Mais Avançado / Lento)</option>
+      </select>
     </div>
+
+    <!-- CAIXA DE INSTRUÇÕES DA IA (PROMPT) -->
+    <div class="form-group" style="margin-bottom: 15px;">
+      <label style="color:var(--brass); font-weight:bold;">🛠️ Instruções para a IA (Prompt):</label>
+      <textarea id="prompt-custom-questoes" class="form-control" style="height:140px; font-size:12.5px; font-family:var(--mono); resize:vertical; background:var(--card-bg2); color:var(--fg); padding:10px; border:1px solid var(--border);">Crie EXATAMENTE 5 questões de múltipla escolha de ALTO NÍVEL (estilo prova para Oficial Cadete).
+
+REGRAS OBRIGATÓRIAS:
+1. EQUILÍBRIO VISUAL: As 5 alternativas (A, B, C, D, E) DEVEM ter tamanhos semelhantes. A alternativa correta NÃO pode ser maior nem mais explicada que as outras.
+2. SEM PISTAS: É estritamente PROIBIDO usar parênteses explicativos apenas na correta.
+3. DISTRATORES FORTES: Crie "pegadinhas" baseadas em erros comuns.
+4. FORMATO: Retorne ESTRITAMENTE um array JSON válido com 5 objetos. Não escreva mais nada.
+
+[
+  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 1...", "opts": ["A", "B", "C", "D", "E"], "correct": 0, "expl": "Explicação..." },
+  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 2...", "opts": ["A", "B", "C", "D", "E"], "correct": 1, "expl": "Explicação..." },
+  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 3...", "opts": ["A", "B", "C", "D", "E"], "correct": 2, "expl": "Explicação..." },
+  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 4...", "opts": ["A", "B", "C", "D", "E"], "correct": 3, "expl": "Explicação..." },
+  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 5...", "opts": ["A", "B", "C", "D", "E"], "correct": 4, "expl": "Explicação..." }
+]</textarea>
+    </div>
+
+    <!-- CAIXA PRINCIPAL DO JSON -->
+    <p style="font-size:13px; color:var(--ink-soft); margin-bottom:8px;">Resultado JSON da IA ou colagem manual:</p>
+    <textarea id="adm-massa-texto" class="form-control" style="flex:1; min-height:120px; font-family:var(--mono); font-size:12px; margin-bottom:15px; resize:vertical;"></textarea>
+    
+    <!-- BOTÕES -->
+   <!-- BOTÕES -->
     <div style="display:flex;gap:10px;justify-content:flex-end;">
+     <button class="btn" style="background:#2B4C7E;color:#fff;border:none;margin-right:auto;" id="btn-gerar-ia-custom" onclick="gerarQuestoesIA()">✨ Gerar 5 Questões IA</button>
       <button class="btn" onclick="fecharModalImportar()">Cancelar</button>
       <button class="btn btn-primary" onclick="importarEmMassaTopico()">📥 Importar Questões</button>
     </div>
+
   </div>
 </div>
 
