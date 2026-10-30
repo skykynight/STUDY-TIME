@@ -176,14 +176,18 @@
   </div>
 
   <!-- VIEW 3: TÓPICOS -->
+
   <div id="view-topicos" style="display:none;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-      <button class="btn" id="btn-voltar-lista" onclick="showMainView('trilha')">⬅ Voltar</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn" id="btn-voltar-lista" onclick="showMainView('trilha')">⬅ Voltar</button>
+        <button class="btn" id="btn-gerar-resumos-vazios" style="background:#2B4C7E;color:#fff;border:none;" onclick="gerarTodosResumosVaziosIA()">⚡ Gerar Resumos Vazios com IA</button>
+        <button class="btn btn-primary" id="btn-gerar-questoes-dia" style="background:#B8912F;border-color:#B8912F;color:#fff;" onclick="abrirModalQuestoesDiaLote()">⚡ Gerar Questões do Dia com IA</button> 
+      </div>
       <h2 id="lista-titulo" style="font-family:var(--serif);margin:0;color:var(--brass-2);font-size:19px;"></h2>
     </div>
     <div id="content-topicos"></div>
   </div>
-
   <!-- VIEW 4: BACKUP GERAL & SINCRONIZAÇÃO NUVEM -->
   <div id="view-backup" style="display:none;">
     <div class="topic-card">
@@ -394,28 +398,29 @@ ATENÇÃO: Retorne APENAS o resumo em HTML agora, sem mensagens de confirmação
     <div class="form-group" style="margin-bottom: 12px;">
       <label style="color:var(--brass); font-weight:bold;">⚡ Modelo da IA:</label>
       <select id="select-modelo-ia" class="form-control" style="font-size:13px;">
-        <option value="gemini-3.8-flash" selected>🚀 Gemini 1.5 Flash (Ultrarrápido e Ideal)</option>
-        <option value="gemini-2.5-pro">🧠 Gemini 1.5 Pro (Mais Avançado / Lento)</option>
+        <option value="gemini-3.8-flash" selected>🚀 Gemini 3.8 Flash (Ultrarrápido e Ideal)</option>
+        <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro (Mais Avançado / Lento)</option>
       </select>
     </div>
 
     <!-- CAIXA DE INSTRUÇÕES DA IA (PROMPT) -->
     <div class="form-group" style="margin-bottom: 15px;">
       <label style="color:var(--brass); font-weight:bold;">🛠️ Instruções para a IA (Prompt):</label>
-      <textarea id="prompt-custom-questoes" class="form-control" style="height:140px; font-size:12.5px; font-family:var(--mono); resize:vertical; background:var(--card-bg2); color:var(--fg); padding:10px; border:1px solid var(--border);">Crie EXATAMENTE 5 questões de múltipla escolha de ALTO NÍVEL (estilo prova para Oficial Cadete).
+      <textarea id="prompt-custom-questoes" class="form-control" style="height:140px; font-size:12.5px; font-family:var(--mono); resize:vertical; background:var(--card-bg2); color:var(--fg); padding:10px; border:1px solid var(--border);">Crie EXATAMENTE 5 questões de múltipla escolha para concurso público/exame seletivo com níveis variados de dificuldade (distribua entre fácil, médio e difícil, atribuindo níveis de 1 a 3).
 
 REGRAS OBRIGATÓRIAS:
-1. EQUILÍBRIO VISUAL: As 5 alternativas (A, B, C, D, E) DEVEM ter tamanhos semelhantes. A alternativa correta NÃO pode ser maior nem mais explicada que as outras.
-2. SEM PISTAS: É estritamente PROIBIDO usar parênteses explicativos apenas na correta.
-3. DISTRATORES FORTES: Crie "pegadinhas" baseadas em erros comuns.
-4. FORMATO: Retorne ESTRITAMENTE um array JSON válido com 5 objetos. Não escreva mais nada.
+1. EQUILÍBRIO VISUAL: As 5 alternativas (A, B, C, D, E) DEVEM ter extensão e estrutura sintática semelhantes. A alternativa correta NÃO pode ser mais longa nem mais detalhada que as demais.
+2. SEM PISTAS: É estritamente proibido incluir ressalvas, justificativas ou parênteses explicativos apenas no gabarito correto.
+3. DISTRATORES FORTES: Elabore alternativas incorretas plausíveis, explorando erros comuns, ambiguidades conceituais e interpretações equivocadas.
+4. VARIAÇÃO DE DIFICULDADE: O campo "nivel" deve variar de 1 a 3 (1 = Fácil, 2 = Médio, 3 = Difícil).
+5. FORMATO DE SAÍDA: Retorne ESTRITAMENTE um array JSON válido contendo exatamente 5 objetos, sem blocos de texto adicionais antes ou depois.
 
 [
-  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 1...", "opts": ["A", "B", "C", "D", "E"], "correct": 0, "expl": "Explicação..." },
-  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 2...", "opts": ["A", "B", "C", "D", "E"], "correct": 1, "expl": "Explicação..." },
-  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 3...", "opts": ["A", "B", "C", "D", "E"], "correct": 2, "expl": "Explicação..." },
-  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 4...", "opts": ["A", "B", "C", "D", "E"], "correct": 3, "expl": "Explicação..." },
-  { "banca": "IA-Hard", "nivel": 3, "q": "Enunciado da questão 5...", "opts": ["A", "B", "C", "D", "E"], "correct": 4, "expl": "Explicação..." }
+  { "nivel": 1, "q": "Enunciado da questão...", "opts": ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"], "correct": 0, "expl": "Breve justificativa do gabarito." },
+  { "nivel": 2, "q": "Enunciado da questão...", "opts": ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"], "correct": 1, "expl": "Breve justificativa do gabarito." },
+  { "nivel": 2, "q": "Enunciado da questão...", "opts": ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"], "correct": 2, "expl": "Breve justificativa do gabarito." },
+  { "nivel": 3, "q": "Enunciado da questão...", "opts": ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"], "correct": 3, "expl": "Breve justificativa do gabarito." },
+  { "nivel": 3, "q": "Enunciado da questão...", "opts": ["Opção A", "Opção B", "Opção C", "Opção D", "Opção E"], "correct": 4, "expl": "Breve justificativa do gabarito." }
 ]</textarea>
     </div>
 
@@ -443,6 +448,7 @@ REGRAS OBRIGATÓRIAS:
       <button class="btn btn-primary" id="btn-tab-novo-edital" onclick="mudarTabEdital('novo')">➕ Inserir Novo Edital</button>
       <button class="btn" id="btn-tab-editar-topicos" onclick="mudarTabEdital('editar')">✏️ Editar Tópicos</button>
       <button class="btn" id="btn-tab-sincronizar" onclick="mudarTabEdital('sincronizar')">🔗 Sincronizar Tópicos</button>
+      <button class="btn" id="btn-tab-config-edital" onclick="mudarTabEdital('config')">🎨 Editar Nome & Cor</button>
     </div>
 
     <!-- TAB: NOVO EDITAL -->
@@ -487,12 +493,77 @@ REGRAS OBRIGATÓRIAS:
       <button class="btn btn-primary" style="width:100%;background:var(--brass);border-color:var(--brass);" onclick="executarSincronizacao()">🔗 Vincular Tópicos</button>
     </div>
 
+    <!-- TAB: CONFIGURAR VISUAL & NOME DO EDITAL -->
+    <div id="tab-config-edital" style="display:none;">
+      <div class="form-group">
+        <label>Selecione o Edital:</label>
+        <select id="select-edital-config" class="form-control" onchange="carregarConfiguracoesEdital()"></select>
+      </div>
+      <div class="form-group">
+        <label>Título / Nome de Exibição:</label>
+        <input type="text" id="config-edital-titulo" class="form-control" placeholder="Ex: PMAM - Soldado">
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="form-group">
+          <label>Ícone / Emoji:</label>
+          <input type="text" id="config-edital-icone" class="form-control" placeholder="🚒, 📚, 🛡️, 👮...">
+        </div>
+        <div class="form-group">
+          <label>Cor do Botão / Destaque:</label>
+          <input type="color" id="config-edital-cor" class="form-control" style="height:42px; padding:2px; cursor:pointer;" value="#2F6845">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%; margin-top:10px;" onclick="salvarConfigVisualEdital()">💾 Salvar Alterações Visuais</button>
+    </div>
+
     <div style="display:flex;justify-content:flex-end;margin-top:20px;border-top:1px solid var(--line);padding-top:15px;">
       <button class="btn" onclick="fecharGerenciadorEditais()">Fechar</button>
     </div>
   </div>
 </div>
-
 <script src="app.js"></script>
+
+<!-- MODAL PARA GERAR QUESTÕES DO DIA EM LOTE -->
+<div id="modal-questoes-dia-lote" class="modal-overlay" style="display:none;">
+  <div class="modal-card" style="max-width: 650px;">
+    <h3 style="font-family:var(--serif);color:var(--brass-2);margin-top:0;">⚡ Geração de Questões do Dia em Lote</h3>
+    <p id="info-questoes-dia-lote" style="font-size:13px;color:var(--ink-soft);margin-bottom:14px;"></p>
+
+    <!-- SELETOR DE MODELO DA IA -->
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label style="color:var(--brass); font-weight:bold;">⚡ Modelo da IA:</label>
+      <select id="select-modelo-ia-dia" class="form-control" style="font-size:13px;">
+        <option value="gemini-3.8-flash" selected>🚀 Gemini 3.8 Flash (Ultrarrápido e Econômico)</option>
+        <option value="gemini-2.5-pro">🧠 Gemini 2.5 Pro (Mais Avançado / Lento)</option>
+      </select>
+    </div>
+
+    <!-- QUANTIDADE DE QUESTÕES POR TÓPICO -->
+    <div class="form-group" style="margin-bottom: 12px;">
+      <label style="color:var(--brass); font-weight:bold;">🔢 Questões por Tópico:</label>
+      <select id="select-qtd-questoes-lote" class="form-control" style="font-size:13px;">
+        <option value="3">3 Questões por tópico</option>
+        <option value="5" selected>5 Questões por tópico</option>
+        <option value="10">10 Questões por tópico</option>
+      </select>
+    </div>
+
+    <!-- CAIXA DE PROMPT EDITÁVEL -->
+    <div class="form-group" style="margin-bottom: 15px;">
+      <label style="color:var(--brass); font-weight:bold;">🛠️ Prompt Customizado (Aplicado a cada tópico):</label>
+      <textarea id="prompt-custom-questoes-dia" class="form-control" style="height:150px; font-size:12px; font-family:var(--mono); resize:vertical; background:var(--card-bg2); color:var(--fg); padding:10px; border:1px solid var(--line);">Crie questões inéditas de múltipla escolha com alto rigor técnico.
+REGRAS OBRIGATÓRIAS:
+1. Retorne estritamente um array JSON puro (sem markdown ou texto extra).
+2. Cada questão deve ter: "banca": "IA", "nivel" (1 a 3), "q" (enunciado), "opts" (5 alternativas) e "correct" (índice 0 a 4).
+3. "expl": explicação detalhada com formatação HTML básica (&lt;b&gt; para alternativas e &lt;br&gt;&lt;br&gt; entre parágrafos).
+4. Alternativas homogêneas em tamanho para não induzir a resposta correta.</textarea>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn" onclick="fecharModalQuestoesDiaLote()">Cancelar</button>
+      <button class="btn btn-primary" id="btn-iniciar-questoes-dia-lote" style="background:var(--green);border-color:var(--green);" onclick="executarQuestoesDiaLote()">🚀 Iniciar Geração em Lote</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
