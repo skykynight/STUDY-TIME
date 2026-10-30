@@ -76,6 +76,12 @@ body{margin:0;font-family:var(--sans);background:var(--bg);color:var(--fg);trans
 [data-theme="dark"] .pill-disc{color:var(--brass-2);border-color:var(--brass-2);}
 .topic-title{font-family:var(--serif);font-size:15.5px;font-weight:700;margin-bottom:12px;line-height:1.4;}
 
+/* Estilo para Tópicos Concluídos */
+.completed-topic {
+  border-color: var(--green) !important;
+  background: var(--green-bg) !important;
+}
+
 .teoria-box{display:none;background:var(--mnemo-bg);border:1px solid var(--brass);border-left:4px solid var(--brass);border-radius:8px;padding:14px;margin-bottom:12px;font-size:13.8px;line-height:1.65;}
 .teoria-box.open{display:block;}
 .teoria-box h4{margin:0 0 8px 0;color:var(--brass-2);font-family:var(--serif);font-size:15.5px;}
@@ -155,4 +161,15 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 .opt-btn {
   user-select: text;
   -webkit-user-select: text;
+}
+/* Botão de Resumo Teórico Vazio */
+.btn-teoria.sem-resumo {
+  background: var(--red-bg) !important;
+  color: var(--red) !important;
+  border-color: var(--red) !important;
+}
+[data-theme="dark"] .btn-teoria.sem-resumo {
+  background: #331C18 !important;
+  color: #f2958d !important;
+  border-color: var(--red) !important;
 }
