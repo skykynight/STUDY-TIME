@@ -383,7 +383,8 @@ function calcularStatsSeguras(listaTopicos) {
 }
 
 function getTopicStats(topicoId) {
-  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  // CORREÇÃO: Busca por equivalentes em todos os editais, inclusive customizados
+  let poolEd = getTodosTopicosGlobais();
   let itemAtual = poolEd.find(e => e.id === topicoId);
   
   let idsParaBuscar = [topicoId];
@@ -1700,12 +1701,18 @@ function createCard(item) {
   let pctColor = stats.feitas === 0 ? 'var(--ink-soft)' : (stats.pct >= 80 ? 'var(--green)' : (stats.pct >= 60 ? 'var(--brass)' : 'var(--red)'));
   let statusCls = isConcluido ? 'status-conc' : (stats.feitas > 0 ? 'status-and' : 'status-pend');
   
-  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+ let poolEd = getTodosTopicosGlobais();
   let idsValidosRes = [item.id];
   if (item.equivalente_id) {
     idsValidosRes = poolEd.filter(e => e.equivalente_id === item.equivalente_id).map(e => e.id);
   }
-  let teoriaHtml = DB_TEORIA[item.id] || `<h4>📖 Nenhum resumo cadastrado</h4><p>Clique em Editar Resumo para adicionar.</p>`;
+  
+ // Procura resumo no tópico atual ou em qualquer tópico vinculado
+  let idComResumo = idsValidosRes.find(id => DB_TEORIA[id] && DB_TEORIA[id].trim() !== '');
+  let temResumo = !!idComResumo;
+  let teoriaHtml = (temResumo ? DB_TEORIA[idComResumo] : null) 
+    || `<h4>📖 Nenhum resumo cadastrado</h4><p>Clique em Editar Resumo para adicionar.</p>`;
+
   let tempoGastoStr = temposTopicos[item.id] ? `<span class="pill" style="background:var(--card-bg2);color:var(--brass-2);">⏱️ ${formatarTempo(temposTopicos[item.id])}</span>` : '';
 
   setTimeout(() => atualizarContadorQuestoesCard(item.id, `btn-q-${item.id}`), 50);
@@ -1740,7 +1747,7 @@ function createCard(item) {
 
     <div id="topic-body-${item.id}" style="display:${bodyDisplay}; border-top:1px dashed var(--line); padding-top: 14px;">
       <div class="action-row">
-        <button class="action-btn btn-teoria" onclick="toggleTeoria(${item.id})">📖 Ver Resumo</button>
+        <button class="action-btn btn-teoria ${temResumo ? '' : 'sem-resumo'}" onclick="toggleTeoria(${item.id})">${temResumo ? '📖 Ver Resumo' : '⚠️ Resumo Vazio'}</button>
         <button class="action-btn" style="background:var(--card-bg2);color:var(--brass);border-color:var(--brass);" onclick="abrirModalResumo(${item.id})">✏️ Editar Resumo</button>
         <button class="action-btn btn-questoes" id="btn-q-${item.id}" onclick="openQuiz(${item.id})">📝 Questões (...)</button>
         <button class="action-btn btn-importar" onclick="abrirModalImportar(${item.id})">📥 Importar JSON</button>
@@ -1768,19 +1775,48 @@ function toggleTopicBody(id) {
 }
 
 function abrirModalResumo(id) {
+  id = parseInt(id);
   document.getElementById('edit-res-id').value = id;
-  document.getElementById('edit-res-texto').value = DB_TEORIA[id] || '';
+  
+  let poolEd = getTodosTopicosGlobais();
+  let itemAtual = poolEd.find(e => e.id === id);
+  let idsValidosRes = [id];
+  if (itemAtual && itemAtual.equivalente_id) {
+    idsValidosRes = poolEd.filter(e => e.equivalente_id === itemAtual.equivalente_id).map(e => e.id);
+  }
+  
+  let idComResumo = idsValidosRes.find(tId => DB_TEORIA[tId] && DB_TEORIA[tId].trim() !== '');
+  document.getElementById('edit-res-texto').value = idComResumo ? DB_TEORIA[idComResumo] : '';
+  
   document.getElementById('modal-resumo').style.display = 'flex';
 }
 function fecharModalResumo() { document.getElementById('modal-resumo').style.display = 'none'; }
 function salvarResumoDireto() {
-  let id = document.getElementById('edit-res-id').value;
+  let id = parseInt(document.getElementById('edit-res-id').value);
   let texto = document.getElementById('edit-res-texto').value;
-  if (!texto.trim()) delete DB_TEORIA[id]; else DB_TEORIA[id] = texto;
+  
+  let poolEd = getTodosTopicosGlobais();
+  let itemAtual = poolEd.find(e => e.id === id);
+  
+  let idsParaSalvar = [id];
+  if (itemAtual && itemAtual.equivalente_id) {
+    idsParaSalvar = poolEd
+      .filter(e => e.equivalente_id === itemAtual.equivalente_id)
+      .map(e => e.id);
+  }
+
+  idsParaSalvar.forEach(topicoId => {
+    if (!texto.trim()) {
+      delete DB_TEORIA[topicoId];
+    } else {
+      DB_TEORIA[topicoId] = texto;
+    }
+  });
+
   saveState();
   fecharModalResumo();
   renderFilteredTopics();
-  alert("✅ Resumo salvo!");
+  alert("✅ Resumo salvo e sincronizado entre tópicos vinculados!");
 }
 
 window._topicoIdAtual = null; // Variável global de segurança
@@ -1886,7 +1922,8 @@ let quizTimerSeconds = 0, quizTimerInterval = null, quizIsPaused = false;
 function getElim(id) { if(!quizElims[id]) quizElims[id]=new Set(); return quizElims[id]; }
 
 async function openQuiz(topicoId) {
-  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  // CORREÇÃO: Pega todos os tópicos existentes (PE, GO e Editais Customizados)
+  let poolEd = getTodosTopicosGlobais();
   let itemAtual = poolEd.find(e => e.id === topicoId);
   
   let idsParaBuscar = [topicoId];
@@ -1920,6 +1957,7 @@ async function openQuiz(topicoId) {
       expl: q.explicacao
     }));
 
+    // Verifica se a questão já foi arquivada em acertos ou erros
     quizList = questoesDoTopico.filter(q => !isQuestionArchived(q.id));
 
   } catch (e) {
@@ -2415,7 +2453,8 @@ function renderizarMatematica() {
 }
 
 async function atualizarContadorQuestoesCard(topicoId, elementoId) {
-  let poolEd = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+  // CORREÇÃO: Utiliza o pool global completo
+  let poolEd = getTodosTopicosGlobais();
   let itemAtual = poolEd.find(e => e.id === topicoId);
   let idsParaBuscar = [topicoId];
   if (itemAtual && itemAtual.equivalente_id) {
@@ -2449,10 +2488,27 @@ async function atualizarContadorQuestoesCard(topicoId, elementoId) {
 const EDITAIS_CUSTOM_KEY = 'cbmpe_editais_custom_v1';
 let editaisCustomizados = JSON.parse(localStorage.getItem(EDITAIS_CUSTOM_KEY)) || [];
 
+const EDITAIS_CONFIG_PADRAO_KEY = 'cbmpe_config_editais_padrao_v1';
+let configEditaisPadrao = JSON.parse(localStorage.getItem(EDITAIS_CONFIG_PADRAO_KEY)) || {
+  CBMPE: { titulo: "CFO CBMPE (Pernambuco)", cor: "#141E33", icone: "🚒" },
+  CBMGO: { titulo: "CFO CBMGO (Goiás)", cor: "#B8912F", icone: "🚒" }
+};
+
 const _carregarEditalOriginal = carregarEdital;
 carregarEdital = function() {
+  let headerTitle = document.getElementById('app-main-title');
+  let badgeEl = document.getElementById('badge-concurso-ativo');
+
   if(CURSO_ATUAL === 'CBMPE' || CURSO_ATUAL === 'CBMGO') {
     _carregarEditalOriginal();
+    let cfg = configEditaisPadrao[CURSO_ATUAL];
+    if(cfg) {
+      if(headerTitle) headerTitle.innerText = `${cfg.icone} ${cfg.titulo} — App`;
+      if(badgeEl) {
+        badgeEl.innerText = `${cfg.icone} ${cfg.titulo}`;
+        badgeEl.style.borderColor = cfg.cor;
+      }
+    }
   } else {
     let editalCustom = editaisCustomizados.find(e => e.id === CURSO_ATUAL);
     if(editalCustom) {
@@ -2460,11 +2516,12 @@ carregarEdital = function() {
       DAY_TITLES = {};
       for(let i=1; i<=7; i++) DAY_TITLES[i] = `Dia ${i} — ${editalCustom.titulo}`;
       
-      let headerTitle = document.getElementById('app-main-title');
-      if(headerTitle) headerTitle.innerText = `🎯 ${editalCustom.titulo} — App`;
-      
-      let badgeEl = document.getElementById('badge-concurso-ativo');
-      if(badgeEl) badgeEl.innerText = `🎯 ${editalCustom.titulo}`;
+      let icone = editalCustom.icone || "🎯";
+      if(headerTitle) headerTitle.innerText = `${icone} ${editalCustom.titulo} — App`;
+      if(badgeEl) {
+        badgeEl.innerText = `${icone} ${editalCustom.titulo}`;
+        if(editalCustom.cor) badgeEl.style.borderColor = editalCustom.cor;
+      }
 
       EDITAL_ALL.forEach(item => {
         if (customMeta[item.id] !== undefined) item.meta = customMeta[item.id];
@@ -2475,15 +2532,20 @@ carregarEdital = function() {
 
 function renderizarBotoesEditais() {
   let container = document.getElementById('lista-botoes-editais');
-  if(!container) return;
-  
+  if (!container) return;
+
+  let cfgPE = configEditaisPadrao['CBMPE'] || { titulo: "CFO CBMPE (Pernambuco)", cor: "#141E33", icone: "🚒" };
+  let cfgGO = configEditaisPadrao['CBMGO'] || { titulo: "CFO CBMGO (Goiás)", cor: "#B8912F", icone: "🚒" };
+
   let html = `
-    <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: var(--navy);" onclick="selecionarTrilha('CBMPE')">🚒 CFO CBMPE (Pernambuco)</button>
-    <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: var(--brass); border-color: var(--brass);" onclick="selecionarTrilha('CBMGO')">🚒 CFO CBMGO (Goiás)</button>
+    <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: ${cfgPE.cor}; border-color: ${cfgPE.cor};" onclick="selecionarTrilha('CBMPE')">${cfgPE.icone} ${cfgPE.titulo}</button>
+    <button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: ${cfgGO.cor}; border-color: ${cfgGO.cor};" onclick="selecionarTrilha('CBMGO')">${cfgGO.icone} ${cfgGO.titulo}</button>
   `;
 
   editaisCustomizados.forEach(edital => {
-    html += `<button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: var(--green); border-color: var(--green);" onclick="selecionarTrilha('${edital.id}')">📚 ${edital.titulo}</button>`;
+    let corBtn = edital.cor || "var(--green)";
+    let iconeBtn = edital.icone || "📚";
+    html += `<button class="btn btn-primary" style="padding: 14px; font-size: 15px; background: ${corBtn}; border-color: ${corBtn};" onclick="selecionarTrilha('${edital.id}')">${iconeBtn} ${edital.titulo}</button>`;
   });
 
   container.innerHTML = html;
@@ -2501,16 +2563,125 @@ function fecharGerenciadorEditais() {
   renderizarBotoesEditais();
 }
 
+function popularSelectsGerenciador() {
+  let options = `<option value="CBMPE">CFO CBMPE</option>
+                 <option value="CBMGO">CFO CBMGO</option>`;
+  
+  editaisCustomizados.forEach(ed => {
+    options += `<option value="${ed.id}">${ed.titulo}</option>`;
+  });
+
+  let selectEdit = document.getElementById('select-edital-editar');
+  let syncA = document.getElementById('sync-edital-a');
+  let syncB = document.getElementById('sync-edital-b');
+  let selectConfig = document.getElementById('select-edital-config');
+  
+  if(selectEdit) selectEdit.innerHTML = options;
+  if(selectConfig) selectConfig.innerHTML = options;
+  if(syncA) { syncA.innerHTML = options; popularTopicosSync('a'); }
+  if(syncB) { syncB.innerHTML = options; popularTopicosSync('b'); }
+
+  carregarTopicosEdicao();
+}
+
 function mudarTabEdital(tab) {
   document.getElementById('tab-novo-edital').style.display = tab === 'novo' ? 'block' : 'none';
   document.getElementById('tab-editar-topicos').style.display = tab === 'editar' ? 'block' : 'none';
   document.getElementById('tab-sincronizar-topicos').style.display = tab === 'sincronizar' ? 'block' : 'none';
+  let tabCfg = document.getElementById('tab-config-edital');
+  if(tabCfg) tabCfg.style.display = tab === 'config' ? 'block' : 'none';
 
   document.getElementById('btn-tab-novo-edital').className = tab === 'novo' ? 'btn btn-primary' : 'btn';
   document.getElementById('btn-tab-editar-topicos').className = tab === 'editar' ? 'btn btn-primary' : 'btn';
   document.getElementById('btn-tab-sincronizar').className = tab === 'sincronizar' ? 'btn btn-primary' : 'btn';
+  let btnCfg = document.getElementById('btn-tab-config-edital');
+  if(btnCfg) btnCfg.className = tab === 'config' ? 'btn btn-primary' : 'btn';
 
-  if(tab === 'editar' || tab === 'sincronizar') popularSelectsGerenciador();
+  popularSelectsGerenciador();
+
+  if(tab === 'config') {
+    let selectEl = document.getElementById('select-edital-config');
+    if(selectEl && !selectEl.value && selectEl.options.length > 0) {
+      selectEl.selectedIndex = 0;
+    }
+    carregarConfiguracoesEdital();
+  }
+}
+
+function carregarConfiguracoesEdital() {
+  let selectEl = document.getElementById('select-edital-config');
+  if(!selectEl) return;
+
+  if(!selectEl.value && selectEl.options.length > 0) {
+    selectEl.selectedIndex = 0;
+  }
+
+  let editalId = selectEl.value;
+  if(!editalId) return;
+
+  let tituloInput = document.getElementById('config-edital-titulo');
+  let iconeInput = document.getElementById('config-edital-icone');
+  let corInput = document.getElementById('config-edital-cor');
+
+  if(editalId === 'CBMPE' || editalId === 'CBMGO') {
+    let cfg = configEditaisPadrao[editalId] || { titulo: editalId, cor: "#141E33", icone: "🚒" };
+    if(tituloInput) tituloInput.value = cfg.titulo || "";
+    if(iconeInput) iconeInput.value = cfg.icone || "🚒";
+    if(corInput) corInput.value = cfg.cor || (editalId === 'CBMPE' ? "#141E33" : "#B8912F");
+  } else {
+    let custom = editaisCustomizados.find(e => e.id === editalId);
+    if(custom) {
+      if(tituloInput) tituloInput.value = custom.titulo || "";
+      if(iconeInput) iconeInput.value = custom.icone || "📚";
+      if(corInput) corInput.value = custom.cor || "#2F6845";
+    }
+  }
+}
+
+function salvarConfigVisualEdital() {
+  let selectEl = document.getElementById('select-edital-config');
+  if(!selectEl || !selectEl.value) {
+    alert("Selecione um edital primeiro!");
+    return;
+  }
+  let editalId = selectEl.value;
+  let novoTitulo = document.getElementById('config-edital-titulo').value.trim();
+  let novoIcone = document.getElementById('config-edital-icone').value.trim() || "🎯";
+  let novaCor = document.getElementById('config-edital-cor').value;
+
+  if(!novoTitulo) {
+    alert("O edital precisa de um nome/título!");
+    return;
+  }
+
+  if(editalId === 'CBMPE' || editalId === 'CBMGO') {
+    configEditaisPadrao[editalId] = { titulo: novoTitulo, cor: novaCor, icone: novoIcone };
+    localStorage.setItem(EDITAIS_CONFIG_PADRAO_KEY, JSON.stringify(configEditaisPadrao));
+  } else {
+    let custom = editaisCustomizados.find(e => e.id === editalId);
+    if(custom) {
+      custom.titulo = novoTitulo;
+      custom.icone = novoIcone;
+      custom.cor = novaCor;
+      localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+      salvarConteudoGlobalNaNuvem();
+    }
+  }
+
+  renderizarBotoesEditais();
+  popularSelectsGerenciador();
+  if(CURSO_ATUAL === editalId) carregarEdital();
+  mostrarNotificacao("Configurações do edital salvas com sucesso!", "sucesso");
+}
+
+function normalizarTextoParaComparacao(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
 }
 
 function salvarNovoEdital() {
@@ -2526,17 +2697,55 @@ function salvarNovoEdital() {
   let topicos = [];
   let nextId = Date.now();
 
+  let todosTopicosExistentes = getTodosTopicosGlobais();
+  let sincronizadosAutomaticamente = 0;
+
   linhas.forEach(linha => {
     let colunas = linha.split('\t');
     if(colunas.length >= 3) {
-      topicos.push({
+      let dia = parseInt(colunas[0].trim()) || 1;
+      let disc = colunas[1].trim();
+      let topicoNome = colunas[2].trim();
+
+      let discNorm = normalizarTextoParaComparacao(disc);
+      let topicoNorm = normalizarTextoParaComparacao(topicoNome);
+
+      let topicoCorrespondente = todosTopicosExistentes.find(t => 
+        normalizarTextoParaComparacao(t.disc) === discNorm &&
+        normalizarTextoParaComparacao(t.topico) === topicoNorm
+      );
+
+      if (!topicoCorrespondente) {
+        topicoCorrespondente = todosTopicosExistentes.find(t => 
+          normalizarTextoParaComparacao(t.topico) === topicoNorm
+        );
+      }
+
+      let equivalenteIdFinal = '';
+
+      if (topicoCorrespondente) {
+        if (topicoCorrespondente.equivalente_id) {
+          equivalenteIdFinal = topicoCorrespondente.equivalente_id;
+        } else {
+          equivalenteIdFinal = `sync_auto_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+          topicoCorrespondente.equivalente_id = equivalenteIdFinal;
+        }
+        sincronizadosAutomaticamente++;
+      } else {
+        equivalenteIdFinal = `custom_${nextId}`;
+      }
+
+      let novoItem = {
         id: nextId++,
-        dia: parseInt(colunas[0].trim()) || 1,
-        disc: colunas[1].trim(),
-        topico: colunas[2].trim(),
+        dia: dia,
+        disc: disc,
+        topico: topicoNome,
         meta: 10,
-        equivalente_id: `custom_${nextId}`
-      });
+        equivalente_id: equivalenteIdFinal
+      };
+
+      topicos.push(novoItem);
+      todosTopicosExistentes.push(novoItem);
     }
   });
 
@@ -2548,40 +2757,20 @@ function salvarNovoEdital() {
   let novoEdital = {
     id: 'EDITAL_' + Date.now(),
     titulo: titulo,
+    icone: "📚",
+    cor: "#2F6845",
     topicos: topicos
   };
 
   editaisCustomizados.push(novoEdital);
   localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
-  
-  // DISPARA A SINCRONIZAÇÃO GERAL IMEDIATAMENTE
   salvarConteudoGlobalNaNuvem();
   
-  alert(`✅ Edital "${titulo}" adicionado e enviado para a nuvem para todos os amigos!`);
+  alert(`✅ Edital "${titulo}" criado com sucesso!\n🔗 ${sincronizadosAutomaticamente} tópico(s) identificado(s) e vinculado(s) automaticamente.`);
   document.getElementById('input-novo-edital-titulo').value = '';
   document.getElementById('input-novo-edital-planilha').value = '';
   renderizarBotoesEditais();
 }
-
-function popularSelectsGerenciador() {
-  let options = `<option value="CBMPE">CFO CBMPE</option>
-                 <option value="CBMGO">CFO CBMGO</option>`;
-  
-  editaisCustomizados.forEach(ed => {
-    options += `<option value="${ed.id}">${ed.titulo}</option>`;
-  });
-
-  let selectEdit = document.getElementById('select-edital-editar');
-  let syncA = document.getElementById('sync-edital-a');
-  let syncB = document.getElementById('sync-edital-b');
-  
-  if(selectEdit) selectEdit.innerHTML = options;
-  if(syncA) { syncA.innerHTML = options; popularTopicosSync('a'); }
-  if(syncB) { syncB.innerHTML = options; popularTopicosSync('b'); }
-
-  carregarTopicosEdicao();
-}
-
 function obterArrayEditalPorId(id) {
   if(id === 'CBMPE') return EDITAL_CBMPE;
   if(id === 'CBMGO') return EDITAL_CBMGO;
@@ -3036,7 +3225,16 @@ async function gerarResumoIA() {
         
         if(resposta) {
             resposta = resposta.replace(/^```html\s*/i, '').replace(/\s*```$/i, '').trim();
-            DB_TEORIA[topicoId] = resposta;
+            let idsParaSalvar = [topicoId];
+if (topicoInfo && topicoInfo.equivalente_id) {
+    idsParaSalvar = poolEd
+      .filter(e => e.equivalente_id === topicoInfo.equivalente_id)
+      .map(e => e.id);
+}
+
+idsParaSalvar.forEach(idSync => {
+    DB_TEORIA[idSync] = resposta;
+});
             saveState();
             
             if(document.getElementById('view-topicos').style.display === 'block') {
@@ -3258,4 +3456,321 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
         toast.style.transform = 'translateX(100%)';
         setTimeout(() => toast.remove(), 300);
     }, 4000);
+}
+
+let _gerandoLoteResumos = false;
+
+async function gerarTodosResumosVaziosIA() {
+  if (_gerandoLoteResumos) {
+    alert("Já existe uma geração em lote em andamento. Aguarde a conclusão.");
+    return;
+  }
+
+  let apiKey = localStorage.getItem('cbmpe_gemini_key');
+  if (!apiKey) {
+    alert("⚠️ Configure primeiro a sua Chave API do Gemini na aba 'Perfil'!");
+    return;
+  }
+
+  // Identifica a lista de tópicos em exibição no momento (Dia ou Matéria)
+  let itensFiltrados = CURRENT_FILTER.type === 'dia'
+    ? EDITAL_ALL.filter(x => x.dia === CURRENT_FILTER.val)
+    : EDITAL_ALL.filter(x => x.disc === CURRENT_FILTER.val);
+
+  let poolEd = getTodosTopicosGlobais();
+
+  // Filtra apenas os tópicos que NÃO têm resumo próprio nem via equivalentes
+  let topicosVazios = itensFiltrados.filter(item => {
+    let idsValidos = [item.id];
+    if (item.equivalente_id) {
+      idsValidos = poolEd.filter(e => e.equivalente_id === item.equivalente_id).map(e => e.id);
+    }
+    return !idsValidos.some(id => DB_TEORIA[id] && DB_TEORIA[id].trim() !== '');
+  });
+
+  if (topicosVazios.length === 0) {
+    mostrarNotificacao("Todos os tópicos desta lista já possuem resumo!", "sucesso");
+    return;
+  }
+
+  if (!confirm(`Foram encontrados ${topicosVazios.length} tópico(s) sem resumo.\n\nDeseja que a IA gere todos agora automaticamente em segundo plano?`)) {
+    return;
+  }
+
+  _gerandoLoteResumos = true;
+  let btnLote = document.getElementById('btn-gerar-resumos-vazios');
+  if (btnLote) {
+    btnLote.disabled = true;
+    btnLote.innerText = `⏳ Gerando (0/${topicosVazios.length})...`;
+  }
+
+  // Pega o prompt padrão ou configurado no modal
+  let promptEl = document.getElementById('prompt-custom-resumo');
+  let instrucoesBase = promptEl ? promptEl.value : `Atue como um especialista em concursos militares.
+Entregue a resposta formatada exclusivamente em código HTML (sem bloco Markdown).
+Utilize <h4> com emojis, listas <ul> <li>, conceitos em negrito <b>, pegadinhas de prova e fórmulas em LaTeX com $.`;
+
+  let concluidos = 0;
+  let falhas = 0;
+
+  for (let item of topicosVazios) {
+    // Dupla checagem caso tenha sido preenchido por um tópico equivalente na mesma rodada
+    let idsParaSalvar = [item.id];
+    if (item.equivalente_id) {
+      idsParaSalvar = poolEd.filter(e => e.equivalente_id === item.equivalente_id).map(e => e.id);
+    }
+    if (idsParaSalvar.some(id => DB_TEORIA[id] && DB_TEORIA[id].trim() !== '')) {
+      concluidos++;
+      continue;
+    }
+
+    if (btnLote) {
+      btnLote.innerText = `⏳ Gerando (${concluidos + 1}/${topicosVazios.length})...`;
+    }
+    mostrarNotificacao(`Gerando resumo: <b>${item.topico}</b>...`, 'info');
+
+    let promptFinal = `Tema obrigatório: "${item.disc} - ${item.topico}"\n\n${instrucoesBase}`;
+    
+    try {
+      let resposta = await chamarGeminiAPI(promptFinal);
+      if (resposta) {
+        resposta = resposta.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+        
+        idsParaSalvar.forEach(idSync => {
+          DB_TEORIA[idSync] = resposta;
+        });
+
+        saveState();
+        if (document.getElementById('view-topicos').style.display === 'block') {
+          renderFilteredTopics();
+        }
+        concluidos++;
+      } else {
+        falhas++;
+      }
+    } catch (e) {
+      console.error(`Erro ao processar tópico ${item.id}:`, e);
+      falhas++;
+    }
+
+    // Intervalo de 1.5s entre requisições para evitar erro 429 (Rate Limit) da API gratuita
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
+  _gerandoLoteResumos = false;
+  if (btnLote) {
+    btnLote.disabled = false;
+    btnLote.innerText = '⚡ Gerar Resumos Vazios com IA';
+  }
+
+  mostrarNotificacao(`Concluído! ${concluidos} resumo(s) gerado(s)${falhas > 0 ? ` (${falhas} falharam)` : ''}.`, 'sucesso');
+  if (document.getElementById('view-topicos').style.display === 'block') {
+    renderFilteredTopics();
+  }
+}
+let _gerandoLoteQuestoes = false;
+
+function abrirModalQuestoesDiaLote() {
+  if (CURRENT_FILTER.type !== 'dia') {
+    alert("Abra um dia da trilha para gerar questões em lote!");
+    return;
+  }
+
+  let topicosDia = EDITAL_ALL.filter(x => x.dia === CURRENT_FILTER.val);
+  if (topicosDia.length === 0) {
+    alert("Nenhum tópico encontrado neste dia.");
+    return;
+  }
+
+  let infoEl = document.getElementById('info-questoes-dia-lote');
+  if (infoEl) {
+    infoEl.innerText = `O Dia ${CURRENT_FILTER.val} possui ${topicosDia.length} tópico(s). A IA vai iterar um por um, injetando o nome de cada matéria e tópico individualmente e salvando direto no Supabase.`;
+  }
+
+  document.getElementById('modal-questoes-dia-lote').style.display = 'flex';
+}
+
+function fecharModalQuestoesDiaLote() {
+  document.getElementById('modal-questoes-dia-lote').style.display = 'none';
+}
+
+async function executarQuestoesDiaLote() {
+  if (_gerandoLoteQuestoes) {
+    alert("Já existe uma geração em lote em andamento. Aguarde a conclusão.");
+    return;
+  }
+
+  let apiKey = localStorage.getItem('cbmpe_gemini_key');
+  if (!apiKey) {
+    alert("⚠️ Configure a sua Chave API do Gemini na aba 'Perfil'!");
+    return;
+  }
+
+  // Identifica os tópicos do dia em exibição
+  let topicosDia = EDITAL_ALL.filter(x => x.dia === CURRENT_FILTER.val);
+  if (!topicosDia || topicosDia.length === 0) {
+    alert("Nenhum tópico encontrado para o dia atual.");
+    return;
+  }
+
+  let selectQtd = document.getElementById('select-qtd-questoes-lote');
+  let qtdQuestoes = selectQtd ? parseInt(selectQtd.value) || 5 : 5;
+
+  let promptInput = document.getElementById('prompt-custom-questoes-dia');
+  let instrucoesCustomizadas = promptInput ? promptInput.value.trim() : "";
+
+  let selectModelo = document.getElementById('select-modelo-ia-dia');
+  let modeloEscolhido = selectModelo ? selectModelo.value : 'gemini-1.5-flash';
+
+  fecharModalQuestoesDiaLote();
+
+  _gerandoLoteQuestoes = true;
+  let btnTopo = document.getElementById('btn-gerar-questoes-dia');
+  if (btnTopo) {
+    btnTopo.disabled = true;
+    btnTopo.innerText = `⏳ Gerando (0/${topicosDia.length})...`;
+  }
+
+  mostrarNotificacao(`Iniciando geração para ${topicosDia.length} tópicos do Dia ${CURRENT_FILTER.val}...`, 'info');
+
+  let concluidos = 0;
+  let totalAdicionadas = 0;
+  let errosOcorridos = [];
+
+  for (let item of topicosDia) {
+    if (btnTopo) {
+      btnTopo.innerText = `⏳ Gerando (${concluidos + 1}/${topicosDia.length})...`;
+    }
+    mostrarNotificacao(`Criando questões para: <b>${item.disc} — ${item.topico}</b>...`, 'info');
+
+    let promptFinal = `Você é um elaborador de questões para concurso militar de alto nível.
+Crie EXATAMENTE ${qtdQuestoes} questões inéditas de múltipla escolha.
+
+Disciplina: "${item.disc}"
+Tópico: "${item.topico}"
+
+Diretrizes Adicionais:
+${instrucoesCustomizadas}
+
+Você DEVE responder ESTRITAMENTE com um array JSON no seguinte formato (sem nenhum texto fora do array):
+[
+  {
+    "banca": "IA",
+    "nivel": 2,
+    "q": "Enunciado da questão...",
+    "opts": ["Alternativa A", "Alternativa B", "Alternativa C", "Alternativa D", "Alternativa E"],
+    "correct": 0,
+    "expl": "Explicação completa detalhada."
+  }
+]`;
+
+    try {
+      let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modeloEscolhido}:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptFinal }] }],
+          generationConfig: {
+            temperature: 0.7,
+            responseMimeType: "application/json" // Força saída JSON nativa
+          }
+        })
+      });
+
+      let data = await response.json();
+
+      if (data.error) {
+        throw new Error(`Erro Gemini: ${data.error.message || 'Falha na API'}`);
+      }
+
+      let textoRaw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!textoRaw) {
+        throw new Error("A IA retornou uma resposta vazia.");
+      }
+
+      // Limpeza profunda de markdown e extração cirúrgica do array [...]
+      let limpo = textoRaw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+      let matchArray = limpo.match(/\[[\s\S]*\]/);
+      if (!matchArray) {
+        throw new Error("Não foi possível encontrar a estrutura de lista JSON na resposta da IA.");
+      }
+
+      let parsed = JSON.parse(matchArray[0]);
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        throw new Error("O JSON retornado não contém itens válidos.");
+      }
+
+      // Mapeamento correto para a tabela 'questoes' do Supabase
+      let novasQuestoesSupabase = parsed.map(q => {
+        let alternativas = Array.isArray(q.opts) ? q.opts : (Array.isArray(q.alternativas) ? q.alternativas : []);
+        let gabarito = typeof q.correct === 'number' ? q.correct : (parseInt(q.gabarito) || 0);
+        let enunciado = q.q || q.enunciado || "";
+        let explicacao = q.expl || q.explicacao || "";
+
+        return {
+          topico_id: item.id,
+          materia: item.disc || "Geral",
+          banca: q.banca || "IA",
+          nivel: q.nivel ? parseInt(q.nivel) : 2,
+          enunciado: enunciado,
+          alternativas: alternativas,
+          gabarito: gabarito,
+          explicacao: explicacao
+        };
+      }).filter(q => q.enunciado && q.alternativas.length >= 2);
+
+      if (novasQuestoesSupabase.length === 0) {
+        throw new Error("As questões geradas não atenderam ao formato mínimo exigido.");
+      }
+
+      // Envia para o Supabase
+      let res = await fetch(`${SUPABASE_URL}/rest/v1/questoes`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(novasQuestoesSupabase)
+      });
+
+      if (!res.ok) {
+        let erroDb = await res.text();
+        throw new Error(`Erro Supabase (${res.status}): ${erroDb}`);
+      }
+
+      concluidos++;
+      totalAdicionadas += novasQuestoesSupabase.length;
+
+      // Atualiza o botão de questões do card imediatamente
+      if (typeof atualizarContadorQuestoesCard === 'function') {
+        atualizarContadorQuestoesCard(item.id, `btn-q-${item.id}`);
+      }
+
+    } catch (e) {
+      console.error(`Falha no tópico "${item.topico}":`, e);
+      errosOcorridos.push(`[${item.disc}] ${e.message}`);
+    }
+
+    // Intervalo de 1.5s entre cada tópico para evitar Rate Limit (429)
+    await new Promise(r => setTimeout(r, 1500));
+  }
+
+  _gerandoLoteQuestoes = false;
+  if (btnTopo) {
+    btnTopo.disabled = false;
+    btnTopo.innerText = '⚡ Gerar Questões do Dia com IA';
+  }
+
+  if (totalAdicionadas > 0) {
+    mostrarNotificacao(`🎉 Concluído! ${totalAdicionadas} questões adicionadas em ${concluidos}/${topicosDia.length} tópicos!`, 'sucesso');
+    if (document.getElementById('view-topicos').style.display === 'block') {
+      renderFilteredTopics();
+    }
+  } else {
+    let detalheErro = errosOcorridos.length > 0 ? errosOcorridos[0] : "Verifique sua chave API e console.";
+    alert(`❌ Nenhuma questão foi inserida.\n\nMotivo do primeiro erro:\n${detalheErro}`);
+  }
 }
