@@ -460,6 +460,7 @@ async function baixarDadosDaNuvem() {
     saveStateLocallyOnly();
     if(CURSO_ATUAL) renderTrail();
     updateGlobalStats();
+    atualizarWidgetMeta(); // <--- ADICIONE ESTA LINHA AQUI
     enviarPlacarParaRanking();
     
     // Força a exibição dos novos editais na tela de Seleção
@@ -772,6 +773,7 @@ function saveStateLocallyOnly() {
   localStorage.setItem(TEMPOS_TOPICOS_KEY, JSON.stringify(temposTopicos));
   
   updateGlobalStats();
+  atualizarWidgetMeta(); // <--- ADICIONE ESTA LINHA AQUI
   if (CURRENT_FILTER.type === 'dia' || CURRENT_FILTER.type === 'disc') renderFilteredTopics();
   else if (CURRENT_FILTER.type === 'trilha' && CURSO_ATUAL) renderTrail();
   else if (CURRENT_FILTER.type === 'materias') renderMateriasGrid();
@@ -970,18 +972,7 @@ function salvarConfigInicial() {
   });
 }
 
-function salvarConfigInicial() {
-  let nome = document.getElementById('setup-input-nome').value.trim();
-  let id = document.getElementById('setup-input-id').value.trim().toLowerCase().replace(/\s+/g, '_');
-  if(!nome || !id) { alert("Por favor, preencha o seu nome e o ID único."); return; }
 
-  localStorage.setItem('cbmpe_nome_usuario', nome);
-  localStorage.setItem('cbmpe_meu_id', id);
-  MEU_ID_USUARIO = id;
-
-  document.getElementById('modal-login-inicial').style.display = 'none';
-  baixarDadosDaNuvem();
-}
 
 function verificarPrimeiroAcesso() {
   if (!MEU_ID_USUARIO) {
@@ -3091,19 +3082,17 @@ function calcularProgressoDiario() {
     let hojeMes = hoje.getMonth();
     let hojeDia = hoje.getDate();
     
-    let feitasHoje = 0;
-
     let contarSeHoje = (q) => {
-        if (!q.timestamp) return false;
+        if (!q || !q.timestamp) return false;
         let d = new Date(q.timestamp);
-        // Compara Dia, Mês e Ano de forma isolada, à prova de fusos horários
+        if (isNaN(d.getTime())) return false; // Evita falha se o timestamp for inválido
         return d.getDate() === hojeDia && d.getMonth() === hojeMes && d.getFullYear() === hojeAno;
     };
 
-    feitasHoje += cadernoAcertos.filter(contarSeHoje).length;
-    feitasHoje += cadernoErros.filter(contarSeHoje).length;
+    let acertosHoje = (cadernoAcertos || []).filter(contarSeHoje).length;
+    let errosHoje = (cadernoErros || []).filter(contarSeHoje).length;
 
-    return feitasHoje;
+    return acertosHoje + errosHoje;
 }
 
 function inicializarWidgetMeta() {
