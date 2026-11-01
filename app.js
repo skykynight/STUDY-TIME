@@ -473,7 +473,6 @@ async function baixarDadosDaNuvem() {
 
 async function salvarConteudoGlobalNaNuvem() {
   try {
-    // 1. Puxa os dados globais mais recentes da nuvem PRIMEIRO para não apagar o que os amigos fizeram
     let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
       method: 'GET',
       headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
@@ -482,38 +481,29 @@ async function salvarConteudoGlobalNaNuvem() {
     let jsonGlobal = await resGlobal.json();
     let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
     
-    // 2. Mescla os editais da nuvem com os locais (se os amigos criaram editais novos)
-    let editaisNuvem = dadosNuvem.editais || [];
-    let mapEditais = new Map();
-    
-    // Junta tudo num mapa para evitar duplicação pelo ID
-    editaisNuvem.forEach(e => mapEditais.set(e.id, e));
-    editaisCustomizados.forEach(e => mapEditais.set(e.id, e));
-    
-    editaisCustomizados = Array.from(mapEditais.values());
-    localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
-
-    // 3. Prepara o pacote final para enviar
+    // Garante que o payload envie o editaisCustomizados atual sem ressuscitar editais excluídos
     let payload = { 
       id: 'global', 
       dados: { 
-        questoes: DB_QUESTOES_ALL, 
-        teoria: DB_TEORIA,
-        editais: editaisCustomizados // Garante que os editais partilhados vão juntos
+        questoes: dadosNuvem.questoes || DB_QUESTOES_ALL, 
+        teoria: { ...(dadosNuvem.teoria || {}), ...DB_TEORIA },
+        editais: editaisCustomizados // Salva exatamente a lista local atualizada
       }, 
       atualizado_em: new Date() 
     };
     
-    // 4. Salva tudo em segurança
     await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
       method: 'POST',
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
+      headers: { 
+        'apikey': SUPABASE_ANON_KEY, 
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 
+        'Content-Type': 'application/json', 
+        'Prefer': 'resolution=merge-duplicates' 
+      },
       body: JSON.stringify(payload)
     });
     
-    // Renderiza os botões no menu inicial caso a nuvem tenha trazido algo novo
-    if(typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
-    
+    if (typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
   } catch (e) {
     console.error("Erro ao salvar conteúdo global na nuvem:", e);
   }
@@ -535,7 +525,6 @@ async function salvarProgressoIndividualNaNuvem() {
 async function enviarPlacarParaRanking() {
   if (!MEU_ID_USUARIO) return;
   
-  // Usamos a função segura para garantir que enviamos o valor sem duplicações
   let poolGeral = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
   let statsSeguras = calcularStatsSeguras(poolGeral);
   
@@ -550,7 +539,7 @@ async function enviarPlacarParaRanking() {
     feitas: totaisFeitas,
     pct: pctGeral,
     detalhes_topicos: { cadernoAcertos, cadernoErros, temposTopicos, streakData },
-    atualizado_em: new Date()
+    atualizado_em: new Date().toISOString() // Salva data e hora exata em ISO
   };
 
   try {
@@ -568,7 +557,6 @@ async function enviarPlacarParaRanking() {
     console.error("Erro ao atualizar ranking:", e);
   }
 }
-
 async function renderizarRankingOnline() {
   let container = document.getElementById('content-ranking');
   if(!container) return;
@@ -599,7 +587,6 @@ async function renderizarRankingOnline() {
       let totalFeitas = 0, totalAcertos = 0;
 
       if (editalFiltro === 'GERAL') {
-        // Ignoramos o número duplicado antigo do banco e contamos diretamente dos cadernos limpos!
         totalFeitas = acertosArr.length + errosArr.length;
         totalAcertos = acertosArr.length;
       } else {
@@ -615,19 +602,46 @@ async function renderizarRankingOnline() {
       }
 
       let pct = totalFeitas > 0 ? Math.round((totalAcertos / totalFeitas) * 100) : 0;
+      let statusConexao = calcularEstadoOnline(item.atualizado_em);
 
       return {
         ...item,
         acertos: totalAcertos,
         feitas: totalFeitas,
-        pct: pct
+        pct: pct,
+        isOnline: statusConexao.online,
+        tempoVisto: statusConexao.texto
       };
     });
 
+    // Ordenação mantida por pontuação
     listaFiltrada.sort((a, b) => b.acertos - a.acertos || b.pct - a.pct);
+
+    // Contagem de utilizadores online
+    let usuariosOnline = listaFiltrada.filter(u => u.isOnline);
 
     let html = `
       <div class="topic-card">
+        <!-- BARRA DE UTILIZADORES ONLINE -->
+        <div style="background:var(--card-bg2); border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span style="font-size:12px; font-family:var(--mono); font-weight:bold; color:var(--brass-2); text-transform:uppercase;">
+              🟢 Estudando Agora (${usuariosOnline.length})
+            </span>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            ${usuariosOnline.length > 0 
+              ? usuariosOnline.map(u => `
+                  <span class="pill" style="border-color:var(--green); background:var(--green-bg); color:var(--green); display:flex; align-items:center; gap:5px; font-weight:bold;">
+                    <span style="width:7px; height:7px; background:var(--green); border-radius:50%; display:inline-block;"></span>
+                    ${u.nome}
+                  </span>
+                `).join('')
+              : '<span style="font-size:12px; color:var(--ink-soft);">Nenhum utilizador ativo nos últimos 5 minutos.</span>'
+            }
+          </div>
+        </div>
+
         <p style="font-size:13px;color:var(--ink-soft);margin-bottom:16px;">Exibindo placar para: <b>${editalFiltro === 'GERAL' ? 'Todos os Editais (Geral)' : 'CFO ' + editalFiltro}</b>. Clique em qualquer usuário para ver detalhes.</p>
         <div style="display:flex;flex-direction:column;gap:8px;">
     `;
@@ -636,16 +650,23 @@ async function renderizarRankingOnline() {
       let medalha = index === 0 ? '🥇' : (index === 1 ? '🥈' : (index === 2 ? '🥉' : `<b>#${index+1}</b>`));
       let isEu = item.usuario_id === MEU_ID_USUARIO;
       let bgCard = isEu ? 'var(--mnemo-bg)' : 'var(--card-bg2)';
-      let borderColor = isEu ? 'var(--brass)' : 'var(--line)';
+      let borderColor = isEu ? 'var(--brass)' : (item.isOnline ? 'var(--green)' : 'var(--line)');
       let patenteInfo = getPatente(item.acertos);
       let userStreak = (item.detalhes_topicos && item.detalhes_topicos.streakData) ? item.detalhes_topicos.streakData.count : 0;
+
+      let badgeOnline = item.isOnline 
+        ? `<span title="Online agora" style="display:inline-block; width:9px; height:9px; background:#2ecc71; border-radius:50%; box-shadow:0 0 8px #2ecc71; margin-left:4px;"></span>`
+        : `<span style="font-size:10px; color:var(--ink-soft); margin-left:4px; font-weight:normal;">(${item.tempoVisto})</span>`;
 
       html += `
         <div onclick="abrirDetalhesUsuarioRanking('${item.usuario_id}')" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:${bgCard};border:1px solid ${borderColor};border-radius:8px;cursor:pointer;transition:transform .1s;" title="Clique para ver detalhes">
           <div style="display:flex;align-items:center;gap:12px;">
             <span style="font-size:18px;width:28px;text-align:center;">${medalha}</span>
             <div>
-              <div style="font-weight:700;font-size:14.5px;color:var(--brass-2);">${item.nome} ${isEu ? '(Você)' : ''} 🔍</div>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <span style="font-weight:700;font-size:14.5px;color:var(--brass-2);">${item.nome} ${isEu ? '(Você)' : ''}</span>
+                ${badgeOnline}
+              </div>
               <div style="font-size:11px;font-family:var(--mono);color:var(--ink-soft);">${patenteInfo.icon} ${patenteInfo.nome} • ${item.feitas} feitas</div>
             </div>
           </div>
@@ -2888,78 +2909,63 @@ function executarSincronizacao() {
 }
 
 async function excluirEditalCompleto(editalId) {
-  if(!editalId.startsWith('EDITAL_')) {
+  if (!editalId.startsWith('EDITAL_')) {
     alert("Não é possível excluir os editais padrão do sistema.");
     return;
   }
 
   let senha = prompt("⚠️ ATENÇÃO: Isto excluirá o edital para TODOS os utilizadores na nuvem.\n\nDigite a palavra-passe numérica (1 a 8) para confirmar:");
   
-  if(senha === "12345678") {
-    // 1. APAGA IMEDIATAMENTE LOCALMENTE PARA FEEDBACK INSTANTÂNEO
+  if (senha === "12345678") {
+    // 1. Atualiza lista local
     editaisCustomizados = editaisCustomizados.filter(e => e.id !== editalId);
     localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
 
-    // 2. Atualiza a tela na mesma hora (o botão some na hora!)
     popularSelectsGerenciador();
     renderizarBotoesEditais();
 
-    if(CURSO_ATUAL === editalId) {
-        voltarParaSeletorTrilha();
+    if (CURSO_ATUAL === editalId) {
+      voltarParaSeletorTrilha();
     }
 
-    alert("🗑️ Edital apagado! A atualizar a nuvem em segundo plano...");
-
-    // 3. VAI À NUVEM APAGAR EM SEGUNDO PLANO (Background)
+    // 2. Grava na nuvem forçadamente sem puxar cache antigo
     try {
-        let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
-          method: 'GET',
-          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-        });
-        
-        let jsonGlobal = await resGlobal.json();
-        let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
-        
-        // Mescla com a nuvem
-        let editaisNuvem = dadosNuvem.editais || [];
-        let mapEditais = new Map();
-        
-        editaisNuvem.forEach(e => mapEditais.set(e.id, e));
-        editaisCustomizados.forEach(e => mapEditais.set(e.id, e)); // A lista local já não tem o apagado
-        
-        // Garante a 100% que o ID apagado é destruído na nuvem
-        mapEditais.delete(editalId);
-        
-        let editaisFinais = Array.from(mapEditais.values());
-        
-        // Prepara o pacote limpo e envia
-        let payload = { 
-          id: 'global', 
-          dados: { 
-            questoes: DB_QUESTOES_ALL, 
-            teoria: DB_TEORIA,
-            editais: editaisFinais 
-          }, 
-          atualizado_em: new Date() 
-        };
-        
-        await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
-          method: 'POST',
-          headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' },
-          body: JSON.stringify(payload)
-        });
+      let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
+        method: 'GET',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      
+      let jsonGlobal = await resGlobal.json();
+      let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
 
-        // Só garante que a lista está igual à da nuvem se algum amigo tiver criado outro entretanto
-        editaisCustomizados = editaisFinais;
-        localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
-        popularSelectsGerenciador();
-        renderizarBotoesEditais();
+      let payload = { 
+        id: 'global', 
+        dados: { 
+          questoes: dadosNuvem.questoes || DB_QUESTOES_ALL, 
+          teoria: dadosNuvem.teoria || DB_TEORIA,
+          editais: editaisCustomizados 
+        }, 
+        atualizado_em: new Date() 
+      };
+      
+      await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
+        method: 'POST',
+        headers: { 
+          'apikey': SUPABASE_ANON_KEY, 
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 
+          'Content-Type': 'application/json', 
+          'Prefer': 'resolution=merge-duplicates' 
+        },
+        body: JSON.stringify(payload)
+      });
 
+      alert("🗑️ Edital excluído com sucesso da nuvem e de todos os dispositivos!");
     } catch (e) {
-        console.error("Erro ao sincronizar exclusão com a nuvem:", e);
+      console.error("Erro ao sincronizar exclusão com a nuvem:", e);
+      alert("Erro ao excluir na nuvem.");
     }
   } else {
-    if(senha !== null) alert("❌ Palavra-passe incorreta. Exclusão cancelada.");
+    if (senha !== null) alert("❌ Palavra-passe incorreta. Exclusão cancelada.");
   }
 }
 
@@ -3763,3 +3769,30 @@ Você DEVE responder ESTRITAMENTE com um array JSON no seguinte formato (sem nen
     alert(`❌ Nenhuma questão foi inserida.\n\nMotivo do primeiro erro:\n${detalheErro}`);
   }
 }
+
+function calcularEstadoOnline(dataStr) {
+  if (!dataStr) return { online: false, texto: 'Offline' };
+  
+  let agora = new Date().getTime();
+  let ultimaAtividade = new Date(dataStr).getTime();
+  let diferencaMinutos = Math.floor((agora - ultimaAtividade) / (1000 * 60));
+
+  if (diferencaMinutos <= 5) {
+    return { online: true, texto: 'Online agora' };
+  } else if (diferencaMinutos < 60) {
+    return { online: false, texto: `Há ${diferencaMinutos}m` };
+  } else if (diferencaMinutos < 1440) {
+    let horas = Math.floor(diferencaMinutos / 60);
+    return { online: false, texto: `Há ${horas}h` };
+  } else {
+    let dias = Math.floor(diferencaMinutos / 1440);
+    return { online: false, texto: `Há ${dias}d` };
+  }
+}
+
+// A cada 3 minutos, atualiza o timestamp se o utilizador estiver ativo na aplicação
+setInterval(() => {
+  if (MEU_ID_USUARIO && document.visibilityState === 'visible') {
+    enviarPlacarParaRanking();
+  }
+}, 3 * 60 * 1000);
