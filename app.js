@@ -3773,9 +3773,14 @@ Você DEVE responder ESTRITAMENTE com um array JSON no seguinte formato (sem nen
 function calcularEstadoOnline(dataStr) {
   if (!dataStr) return { online: false, texto: 'Offline' };
   
-  let agora = new Date().getTime();
+  let agora = Date.now();
   let ultimaAtividade = new Date(dataStr).getTime();
-  let diferencaMinutos = Math.floor((agora - ultimaAtividade) / (1000 * 60));
+  let diferencaMs = agora - ultimaAtividade;
+
+  // Corrige caso o relógio de algum aparelho esteja adiantado
+  if (diferencaMs < 0) diferencaMs = 0;
+
+  let diferencaMinutos = Math.floor(diferencaMs / (1000 * 60));
 
   if (diferencaMinutos <= 5) {
     return { online: true, texto: 'Online agora' };
@@ -3790,9 +3795,23 @@ function calcularEstadoOnline(dataStr) {
   }
 }
 
-// A cada 3 minutos, atualiza o timestamp se o utilizador estiver ativo na aplicação
+// Registra o último momento em que o usuário REALMENTE interagiu com a tela
+let ultimoMovimentoUsuario = Date.now();
+
+['touchstart', 'mousemove', 'keydown', 'scroll', 'click'].forEach(evento => {
+  window.addEventListener(evento, () => {
+    ultimoMovimentoUsuario = Date.now();
+  }, { passive: true });
+});
+
+// Heartbeat a cada 2 minutos
 setInterval(() => {
-  if (MEU_ID_USUARIO && document.visibilityState === 'visible') {
+  if (!MEU_ID_USUARIO) return;
+
+  let ociosoHaMaisDe5Min = (Date.now() - ultimoMovimentoUsuario) > (5 * 60 * 1000);
+
+  // Só envia status online se a tela estiver visível E o usuário tiver mexido no app nos últimos 5 minutos
+  if (document.visibilityState === 'visible' && !ociosoHaMaisDe5Min) {
     enviarPlacarParaRanking();
   }
-}, 3 * 60 * 1000);
+}, 2 * 60 * 1000);
