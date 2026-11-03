@@ -306,21 +306,71 @@ const DAY_TITLES_CBMGO = {
 let DAY_TITLES = {};
 
 function carregarEdital() {
-  EDITAL_ALL = CURSO_ATUAL === 'CBMGO' ? EDITAL_CBMGO : EDITAL_CBMPE;
-  DAY_TITLES = CURSO_ATUAL === 'CBMGO' ? DAY_TITLES_CBMGO : DAY_TITLES_CBMPE;
-  
-  EDITAL_ALL.forEach(item => {
-    if (customMeta[item.id] !== undefined) item.meta = customMeta[item.id];
-  });
-
-  let headerTitle = document.getElementById('app-main-title');
-  if(headerTitle) {
-    headerTitle.innerText = CURSO_ATUAL === 'CBMGO' ? "🚒 CFO CBMGO — App" : "🚒 CFO CBMPE — App";
+  // 🚨 AUTO-REPARO: Previne que o cache padrão tenha guardado o valor vazio
+  if (typeof EDITAL_CBMPE === 'undefined' || EDITAL_CBMPE.length === 0) {
+    EDITAL_CBMPE = JSON.parse(localStorage.getItem('cbmpe_cache_v1'));
+    if (!EDITAL_CBMPE || EDITAL_CBMPE.length === 0) {
+      localStorage.removeItem('cbmpe_cache_v1');
+      window.location.reload();
+      return;
+    }
   }
 
+  if (typeof EDITAL_CBMGO === 'undefined' || EDITAL_CBMGO.length === 0) {
+    EDITAL_CBMGO = JSON.parse(localStorage.getItem('cbmgo_cache_v1'));
+    if (!EDITAL_CBMGO || EDITAL_CBMGO.length === 0) {
+      localStorage.removeItem('cbmgo_cache_v1');
+      window.location.reload();
+      return;
+    }
+  }
+
+  if(CURSO_ATUAL === 'CBMGO') {
+    EDITAL_ALL = EDITAL_CBMGO;
+    DAY_TITLES = DAY_TITLES_CBMGO;
+  } else if (CURSO_ATUAL === 'CBMPE') {
+    EDITAL_ALL = EDITAL_CBMPE;
+    DAY_TITLES = DAY_TITLES_CBMPE;
+  } else {
+    let editalCustom = editaisCustomizados.find(e => e.id === CURSO_ATUAL);
+    if(editalCustom) {
+      EDITAL_ALL = editalCustom.topicos || [];
+      DAY_TITLES = {};
+      let maxM = Math.max(...EDITAL_ALL.map(x => x.dia), 7);
+      for(let i=1; i<=maxM; i++) DAY_TITLES[i] = `Meta ${i} — ${editalCustom.titulo}`;
+    } else {
+       EDITAL_ALL = []; // Evita erro se o edital não for encontrado
+    }
+  }
+
+  if (EDITAL_ALL && EDITAL_ALL.length > 0) {
+    EDITAL_ALL.forEach(item => {
+      if (customMeta[item.id] !== undefined) item.meta = customMeta[item.id];
+    });
+  }
+
+  let headerTitle = document.getElementById('app-main-title');
   let badgeEl = document.getElementById('badge-concurso-ativo');
-  if(badgeEl) {
-    badgeEl.innerText = CURSO_ATUAL === 'CBMGO' ? "🎯 CFO CBMGO (Goiás)" : "🎯 CFO CBMPE (Pernambuco)";
+
+  if(CURSO_ATUAL === 'CBMPE' || CURSO_ATUAL === 'CBMGO') {
+    let cfg = configEditaisPadrao[CURSO_ATUAL];
+    if(cfg) {
+      if(headerTitle) headerTitle.innerText = `${cfg.icone} ${cfg.titulo} — App`;
+      if(badgeEl) {
+        badgeEl.innerText = `${cfg.icone} ${cfg.titulo}`;
+        badgeEl.style.borderColor = cfg.cor;
+      }
+    }
+  } else {
+    let editalCustom = editaisCustomizados.find(e => e.id === CURSO_ATUAL);
+    if(editalCustom) {
+      let icone = editalCustom.icone || "🎯";
+      if(headerTitle) headerTitle.innerText = `${icone} ${editalCustom.titulo} — App`;
+      if(badgeEl) {
+        badgeEl.innerText = `${icone} ${editalCustom.titulo}`;
+        if(editalCustom.cor) badgeEl.style.borderColor = editalCustom.cor;
+      }
+    }
   }
 }
 
@@ -328,12 +378,13 @@ function selecionarTrilha(curso) {
   CURSO_ATUAL = curso;
   localStorage.setItem('cbmpe_curso_atual', CURSO_ATUAL);
   carregarEdital();
-  document.getElementById('trilha-seletor-container').style.display = 'none';
-  document.getElementById('trilha-conteudo-container').style.display = 'block';
+  let seletor = document.getElementById('trilha-seletor-container');
+  let conteudo = document.getElementById('trilha-conteudo-container');
+  if(seletor) seletor.style.display = 'none';
+  if(conteudo) conteudo.style.display = 'block';
   renderTrail();
   updateGlobalStats();
 }
-
 function voltarParaSeletorTrilha() {
   CURSO_ATUAL = '';
   localStorage.removeItem('cbmpe_curso_atual');
@@ -532,14 +583,15 @@ async function enviarPlacarParaRanking() {
   let totaisAcertos = statsSeguras.acertos;
   let pctGeral = totaisFeitas > 0 ? Math.round((totaisAcertos / totaisFeitas) * 100) : 0;
 
+  // ⬇️ É EXATAMENTE AQUI QUE VOCÊ DEVE MEXER / SUBSTITUIR:
   let payload = {
     usuario_id: MEU_ID_USUARIO,
     nome: localStorage.getItem('cbmpe_nome_usuario') || MEU_ID_USUARIO,
     acertos: totaisAcertos,
     feitas: totaisFeitas,
     pct: pctGeral,
-    detalhes_topicos: { cadernoAcertos, cadernoErros, temposTopicos, streakData },
-    atualizado_em: new Date().toISOString() // Salva data e hora exata em ISO
+    detalhes_topicos: { cadernoAcertos, cadernoErros, temposTopicos, streakData, historicoCiclos }, // <-- Adicionamos o 'historicoCiclos' aqui dentro!
+    atualizado_em: new Date().toISOString() 
   };
 
   try {
@@ -581,36 +633,46 @@ async function renderizarRankingOnline() {
 
     let listaFiltrada = lista.map(item => {
       let detalhes = item.detalhes_topicos || {};
-      let acertosArr = detalhes.cadernoAcertos || [];
+   
+let acertosArr = detalhes.cadernoAcertos || [];
       let errosArr = detalhes.cadernoErros || [];
+      let historicoCiclosUsuario = detalhes.historicoCiclos || [];
 
-      let totalFeitas = 0, totalAcertos = 0;
+      // Calcula as questões feitas hoje
+      let hoje = new Date();
+      let contarSeHoje = (q) => {
+          if (!q || !q.timestamp) return false;
+          let d = new Date(q.timestamp);
+          if (isNaN(d.getTime())) return false;
+          return d.getDate() === hoje.getDate() && d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear();
+      };
+      let feitasHoje = acertosArr.filter(contarSeHoje).length + errosArr.filter(contarSeHoje).length;
 
-      if (editalFiltro === 'GERAL') {
-        totalFeitas = acertosArr.length + errosArr.length;
-        totalAcertos = acertosArr.length;
-      } else {
-        let idsValidos = editalFiltro === 'CBMPE' 
-          ? Array.from({length: 81}, (_, i) => i + 1) 
-          : Array.from({length: 67}, (_, i) => i + 101).concat([67, 68, 69]);
+      // Soma o que foi feito no ciclo atual
+      let acertosAtual = acertosArr.length;
 
-        let acertosFiltrados = acertosArr.filter(q => idsValidos.includes(q.topico_id));
-        let errosFiltrados = errosArr.filter(q => idsValidos.includes(q.topico_id));
-        
-        totalFeitas = acertosFiltrados.length + errosFiltrados.length;
-        totalAcertos = acertosFiltrados.length;
-      }
 
+
+      let errosAtual = errosArr.length;
+      let feitasAtual = acertosAtual + errosAtual;
+
+      // Soma o que já está guardado nos ciclos anteriores encerrados
+      let acertosHistorico = historicoCiclosUsuario.reduce((acc, c) => acc + (c.acertos || 0), 0);
+      let feitasHistorico = historicoCiclosUsuario.reduce((acc, c) => acc + (c.feitas || 0), 0);
+
+      let totalFeitas = feitasAtual + feitasHistorico;
+      let totalAcertos = acertosAtual + acertosHistorico;
       let pct = totalFeitas > 0 ? Math.round((totalAcertos / totalFeitas) * 100) : 0;
       let statusConexao = calcularEstadoOnline(item.atualizado_em);
 
-      return {
+  return {
         ...item,
         acertos: totalAcertos,
         feitas: totalFeitas,
         pct: pct,
         isOnline: statusConexao.online,
-        tempoVisto: statusConexao.texto
+        tempoVisto: statusConexao.texto,
+        feitasHoje: feitasHoje
       };
     });
 
@@ -670,9 +732,9 @@ async function renderizarRankingOnline() {
               <div style="font-size:11px;font-family:var(--mono);color:var(--ink-soft);">${patenteInfo.icon} ${patenteInfo.nome} • ${item.feitas} feitas</div>
             </div>
           </div>
-          <div style="text-align:right;">
+      <div style="text-align:right;">
             <div style="font-family:var(--serif);font-size:18px;font-weight:bold;color:var(--brass-2);">${item.acertos} acertos</div>
-            <div style="font-size:11.5px;font-family:var(--mono);color:var(--green);">${item.pct}% taxa <span style="color:#ff8c00;margin-left:4px;font-weight:bold;">🔥 ${userStreak}d</span></div>
+            <div style="font-size:11.5px;font-family:var(--mono);color:var(--green);">${item.pct}% taxa <span style="color:#ff8c00;margin-left:4px;font-weight:bold;">🔥 ${userStreak}d</span> <span style="color:var(--brass-2);margin-left:4px;font-weight:bold;">📅 ${item.feitasHoje} hj</span></div>
           </div>
         </div>
       `;
@@ -764,19 +826,34 @@ function saveStateLocallyOnly() {
   checkAndUpdateStreak();
   // ... resto do teu código continua igual para baixo
   
-  let hojeStr = new Date().toISOString().split('T')[0];
-  let poolGeral = [...EDITAL_CBMPE, ...EDITAL_CBMGO];
-  poolGeral.forEach(item => {
-    let stats = getTopicStats(item.id);
-    if (stats.feitas > 0) {
-      if (!datasTopicos[item.id]) {
-        datasTopicos[item.id] = { start: hojeStr, ciclo: cicloAtualNum };
+let hojeStr = new Date().toISOString().split('T')[0];
+  
+  // Define o pool de edital ativo com segurança
+  let poolGeral = (typeof EDITAL_ALL !== 'undefined' && EDITAL_ALL.length > 0) 
+    ? EDITAL_ALL 
+    : [...(typeof EDITAL_CBMPE !== 'undefined' ? EDITAL_CBMPE : []), ...(typeof EDITAL_CBMGO !== 'undefined' ? EDITAL_CBMGO : [])];
+
+  let diasSet = [...new Set(poolGeral.map(x => x.dia))];
+  
+  diasSet.forEach(dNum => {
+    let itensMeta = poolGeral.filter(x => x.dia === dNum && x.dia <= 6);
+    if (itensMeta.length === 0) return;
+
+    let todasConcluidas = itensMeta.every(item => {
+      let stats = getTopicStats(item.id);
+      return stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta);
+    });
+
+    let algumIniciado = itensMeta.some(item => getTopicStats(item.id).feitas > 0);
+    
+    if (algumIniciado) {
+      if (!datasCiclo[dNum]) {
+        datasCiclo[dNum] = hojeStr; // Grava automaticamente o dia de início
       }
-      if (item.meta > 0 && stats.feitas >= item.meta && !datasTopicos[item.id].end) {
-        datasTopicos[item.id].end = hojeStr;
-      }
-      if (item.meta > 0 && stats.feitas < item.meta && datasTopicos[item.id].end) {
-        delete datasTopicos[item.id].end;
+      if (todasConcluidas && !datasCiclo['fim_' + dNum]) {
+        datasCiclo['fim_' + dNum] = hojeStr; // Grava automaticamente o dia de término da meta
+      } else if (!todasConcluidas && datasCiclo['fim_' + dNum]) {
+        delete datasCiclo['fim_' + dNum]; 
       }
     }
   });
@@ -1156,7 +1233,25 @@ function alterarDataDiaManual(diaNum, novaDataStr) {
 }
 
 function encerrarCicloAtual() {
-  if(confirm("Deseja encerrar o ciclo atual? Suas estatísticas serão salvas no relatório e as questões voltarão para a trilha!")) {
+  let poolAtivo = EDITAL_ALL;
+  let topicosPendentes = [];
+
+  poolAtivo.forEach(item => {
+    if (item.dia <= 6) {
+      let stats = getTopicStats(item.id);
+      let metaCumprida = stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta);
+      if (!metaCumprida) {
+        topicosPendentes.push(`- Dia ${item.dia}: ${item.disc} (${stats.feitas}/${item.meta || 1})`);
+      }
+    }
+  });
+
+  if (topicosPendentes.length > 0) {
+    alert(`⛔ BLOQUEADO: Não é possível encerrar o ciclo!\n\nAinda existem ${topicosPendentes.length} tópico(s) sem a meta cumprida:\n\n` + topicosPendentes.slice(0, 8).join('\n') + (topicosPendentes.length > 8 ? '\n...e outros.' : ''));
+    return;
+  }
+
+  if(confirm("🎉 Parabéns! Todas as metas do ciclo foram cumpridas. Deseja encerrar o ciclo atual?")) {
     let totFeitas = 0, totAcertos = 0;
     EDITAL_ALL.forEach(item => {
       let stats = getTopicStats(item.id);
@@ -1192,17 +1287,25 @@ function renderTrail() {
   document.getElementById('lbl-ciclo-atual').innerText = `Ciclo Atual (#${cicloAtualNum})`;
   document.getElementById('input-data-inicio').value = datasCiclo[1] || '';
 
+  // Descobre qual é o número máximo de metas (dias) do edital atual
+  let maxMetas = Math.max(...EDITAL_ALL.map(x => x.dia), 7);
+
   let html = '';
   let foundCurrent = false;
-  for (let d = 1; d <= 7; d++) {
+  for (let d = 1; d <= maxMetas; d++) {
     let items = EDITAL_ALL.filter(x => x.dia === d);
+    if (items.length === 0 && d > 7) continue; // Pula se não houver itens
+
     let concluidos = items.filter(x => {
       let stats = getTopicStats(x.id);
+      // CORREÇÃO DO ERRO AQUI: alterado 'item.meta' para 'x.meta'
       return stats.feitas > 0 && (x.meta === 0 || stats.feitas >= x.meta);
     }).length;
+    
     let isDone = concluidos === items.length && items.length > 0;
     let isCurrent = !isDone && !foundCurrent;
     if (isCurrent) foundCurrent = true;
+    
     let pctProg = items.length > 0 ? Math.round((concluidos / items.length) * 100) : 0;
     let stateCls = isDone ? 'done' : (isCurrent ? 'current' : '');
     
@@ -1216,18 +1319,22 @@ function renderTrail() {
       return `<span class="trail-chip ${ok ? 'ok' : ''}">${ok ? '✓ ' : ''}${it.disc}</span>`;
     }).join('');
 
-    let dataDiaVal = datasCiclo[d] || '';
+    let dataInicioVal = datasCiclo[d] || '';
+    let dataFimVal = datasCiclo['fim_' + d] ? ` (Fim: ${formatDataBr(datasCiclo['fim_' + d])})` : '';
+
+    let tituloMeta = (DAY_TITLES && DAY_TITLES[d]) ? DAY_TITLES[d].replace(/^Dia\s*\d+/, `Meta ${d}`) : `Meta ${d} — Bloco de Estudos`;
 
     html += `
     <div class="trail-node ${stateCls}">
-      <div class="trail-dot">${isDone ? '✓' : 'D' + d}</div>
+      <div class="trail-dot">${isDone ? '✓' : 'M' + d}</div>
       <div class="trail-card" onclick="openDay(${d})">
         <div class="trail-top">
-          <div class="trail-day-title">${DAY_TITLES[d]}</div>
+          <div class="trail-day-title">${tituloMeta}</div>
           <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <div onclick="event.stopPropagation();" style="display:flex;align-items:center;gap:4px;font-size:11.5px;font-family:var(--mono);">
-              <span>📅 Data:</span>
-              <input type="date" value="${dataDiaVal}" class="form-control" style="padding:2px 6px;font-size:11.5px;width:130px;" onchange="alterarDataDiaManual(${d}, this.value)">
+              <span>📅 Início:</span>
+              <input type="date" value="${dataInicioVal}" class="form-control" style="padding:2px 6px;font-size:11.5px;width:130px;" onchange="alterarDataDiaManual(${d}, this.value)">
+              <span style="font-size:11px; color:var(--green);">${dataFimVal}</span>
             </div>
             ${badgeHtml}
           </div>
@@ -1237,7 +1344,7 @@ function renderTrail() {
         <div class="trail-footer">
           <span style="font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);">Progresso: ${pctProg}%</span>
           <button class="trail-btn" onclick="event.stopPropagation(); openDay(${d});">
-            ${isCurrent ? '🚀 Iniciar Dia ' + d : 'Abrir Dia ' + d + ' →'}
+            ${isCurrent ? '🚀 Iniciar Meta ' + d : 'Abrir Meta ' + d + ' →'}
           </button>
         </div>
       </div>
@@ -2248,15 +2355,18 @@ function renderRev() {
 function renderRel() {
   let poolEd = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
   let totaisFeitas = 0, totaisAcertos = 0, statsPorDisc = {};
+  
   poolEd.forEach(item => {
     let stats = getTopicStats(item.id);
-    totaisFeitas += stats.feitas; totaisAcertos += stats.acertos;
+    totaisFeitas += stats.feitas; 
+    totaisAcertos += stats.acertos;
     if(!statsPorDisc[item.disc]) statsPorDisc[item.disc] = {feitas:0, acertos:0, qtd:0, conc:0};
     statsPorDisc[item.disc].feitas += stats.feitas; 
     statsPorDisc[item.disc].acertos += stats.acertos; 
     statsPorDisc[item.disc].qtd++;
     if(stats.feitas > 0 && (item.meta === 0 || stats.feitas >= item.meta)) statsPorDisc[item.disc].conc++;
   });
+  
   let pctGeral = totaisFeitas > 0 ? Math.round((totaisAcertos / totaisFeitas) * 100) : 0;
   
   let rowsHtml = Object.keys(statsPorDisc).map(disc => {
@@ -2266,30 +2376,117 @@ function renderRel() {
     return `<div class="topic-row"><span style="flex:1;font-weight:600;">${disc}</span><span style="font-family:var(--mono);font-size:11px;">${d.conc}/${d.qtd} ok</span><span class="bar-mini"><span class="bar-mini-fill" style="width:${p}%;"></span></span><span style="font-family:var(--mono);font-size:11px;font-weight:bold;width:45px;text-align:right;">${acP}% 🎯</span></div>`;
   }).join('');
 
+  // Monta a lista de ciclos para o gráfico e para os botões clicáveis
   let todosCiclosGrafico = [...historicoCiclos, {
-    ciclo: cicloAtualNum + ' (Atual)', feitas: totaisFeitas, acertos: totaisAcertos, erros: totaisFeitas - totaisAcertos, pct: pctGeral
+    ciclo: cicloAtualNum, feitas: totaisFeitas, acertos: totaisAcertos, erros: totaisFeitas - totaisAcertos, pct: pctGeral, atual: true
   }];
 
   let chartBarsHtml = todosCiclosGrafico.map(c => {
     let barColor = c.pct >= 80 ? 'var(--green)' : (c.pct >= 60 ? 'var(--brass)' : 'var(--red)');
     let heightPct = Math.max(c.pct, 6);
-    return `<div class="chart-col"><div class="chart-val">${c.pct}%</div><div class="chart-bar" style="height:${heightPct}%;background:${barColor};"></div><div class="chart-lbl">C#${c.ciclo}</div></div>`;
+    return `<div class="chart-col" style="cursor:pointer;" onclick="abrirDetalhesCicloRelatorio(${c.ciclo})">
+              <div class="chart-val">${c.pct}%</div>
+              <div class="chart-bar" style="height:${heightPct}%;background:${barColor};"></div>
+              <div class="chart-lbl">C#${c.ciclo}</div>
+            </div>`;
   }).join('');
+
+  let listaCiclosBotoes = todosCiclosGrafico.map(c => `
+    <div onclick="abrirDetalhesCicloRelatorio(${c.ciclo})" style="background:var(--card-bg2); border:1px solid var(--line); border-radius:10px; padding:14px; cursor:pointer; transition:transform 0.1s; display:flex; justify-content:space-between; align-items:center;">
+       <div>
+          <div style="font-family:var(--serif); font-size:16px; color:var(--brass-2); font-weight:bold;">🔄 Ciclo #${c.ciclo} ${c.atual ? '(Atual)' : ''}</div>
+          <div style="font-size:12px; font-family:var(--mono); color:var(--ink-soft); margin-top:2px;">${c.feitas || 0} questões respondidas</div>
+       </div>
+       <div style="text-align:right;">
+          <div style="font-family:var(--serif); font-size:18px; font-weight:bold; color:var(--green);">${c.pct || 0}%</div>
+          <div style="font-size:11px; font-family:var(--mono); color:var(--ink-soft);">Clique para ver detalhes →</div>
+       </div>
+    </div>
+  `).join('');
 
   document.getElementById('content-rel').innerHTML = `
     <div class="topic-card" style="text-align:center;padding:20px;">
-      <div style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">APROVEITAMENTO (CICLO #${cicloAtualNum})</div>
+      <div style="font-family:var(--mono);font-size:12px;color:var(--ink-soft);">APROVEITAMENTO GERAL (ACUMULADO)</div>
       <div class="score-num" style="font-size:48px;">${pctGeral}%</div>
-      <div style="font-family:var(--mono);font-size:12px;font-weight:bold;color:var(--brass);">${totaisAcertos} ACERTOS DE ${totaisFeitas} FEITAS</div>
+      <div style="font-family:var(--mono);font-size:12px;font-weight:bold;color:var(--brass);">${totaisAcertos} ACERTOS DE ${totaisFeitas} FEITAS NO CICLO ATUAL</div>
     </div>
+    
     <div class="topic-card">
-      <h3 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">📈 Gráfico de Evolução por Ciclo</h3>
+      <h3 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">📈 Gráfico de Evolução (Clique nas colunas)</h3>
       <div class="chart-box">${chartBarsHtml}</div>
     </div>
-    <div class="topic-card" style="padding:16px;">
-      <h3 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">📚 Desempenho por Matéria</h3>
+
+    <div class="topic-card">
+      <h3 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">📚 Histórico de Ciclos (Relatórios Detalhados)</h3>
+      <p style="font-size:13px; color:var(--ink-soft); margin-bottom:14px;">Clique em qualquer ciclo abaixo para abrir o relatório minucioso de desempenho:</p>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        ${listaCiclosBotoes}
+      </div>
+    </div>
+
+    <div id="relatorio-ciclo-detalhado" style="margin-top:16px;"></div>
+
+    <div class="topic-card" style="padding:16px; margin-top:16px;">
+      <h3 style="font-family:var(--serif);margin-top:0;color:var(--brass-2);">📊 Desempenho por Matéria (Ciclo Atual)</h3>
       ${rowsHtml}
     </div>`;
+}
+
+// Função auxiliar para exibir o relatório caprichado ao clicar em um ciclo
+function abrirDetalhesCicloRelatorio(numCiclo) {
+  let cicloDados = null;
+  let isAtual = (numCiclo === cicloAtualNum);
+
+  if (isAtual) {
+    let poolEd = CURSO_ATUAL ? EDITAL_ALL : [...EDITAL_CBMPE, ...EDITAL_CBMGO];
+    let f = 0, a = 0;
+    poolEd.forEach(item => {
+      let st = getTopicStats(item.id);
+      f += st.feitas; a += st.acertos;
+    });
+    cicloDados = { ciclo: numCiclo, feitas: f, acertos: a, erros: f - a, pct: f > 0 ? Math.round((a / f) * 100) : 0, status: 'Em Andamento' };
+  } else {
+    cicloDados = historicoCiclos.find(c => c.ciclo === numCiclo);
+  }
+
+  let container = document.getElementById('relatorio-ciclo-detalhado');
+  if (!container) return;
+
+  if (!cicloDados) {
+    container.innerHTML = `<div class="topic-card" style="color:var(--red);">Nenhum dado encontrado para o Ciclo #${numCiclo}.</div>`;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="topic-card" style="border-top: 4px solid var(--brass); background: var(--card-bg2);">
+       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="margin:0; font-family:var(--serif); color:var(--brass-2);">📋 Relatório Detalhado — Ciclo #${cicloDados.ciclo}</h3>
+          <button class="btn" style="padding:4px 10px; font-size:11.5px;" onclick="document.getElementById('relatorio-ciclo-detalhado').innerHTML=''">✖ Fechar</button>
+       </div>
+       <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; text-align:center; margin-bottom:14px;">
+          <div style="background:var(--card-bg); padding:10px; border-radius:6px; border:1px solid var(--line);">
+             <div style="font-size:11px; font-family:var(--mono); color:var(--ink-soft);">TOTAL FEITAS</div>
+             <div style="font-size:20px; font-weight:bold; color:var(--fg);">${cicloDados.feitas || 0}</div>
+          </div>
+          <div style="background:var(--card-bg); padding:10px; border-radius:6px; border:1px solid var(--line);">
+             <div style="font-size:11px; font-family:var(--mono); color:var(--ink-soft);">ACERTOS</div>
+             <div style="font-size:20px; font-weight:bold; color:var(--green);">${cicloDados.acertos || 0}</div>
+          </div>
+          <div style="background:var(--card-bg); padding:10px; border-radius:6px; border:1px solid var(--line);">
+             <div style="font-size:11px; font-family:var(--mono); color:var(--ink-soft);">ERROS</div>
+             <div style="font-size:20px; font-weight:bold; color:var(--red);">${cicloDados.erros || (cicloDados.feitas - cicloDados.acertos) || 0}</div>
+          </div>
+          <div style="background:var(--card-bg); padding:10px; border-radius:6px; border:1px solid var(--line);">
+             <div style="font-size:11px; font-family:var(--mono); color:var(--ink-soft);">PRECISÃO</div>
+             <div style="font-size:20px; font-weight:bold; color:var(--brass-2);">${cicloDados.pct || 0}%</div>
+          </div>
+       </div>
+       <div style="font-size:13px; color:var(--ink-soft); font-family:var(--mono); text-align:center;">
+          Status do Período: <b>${isAtual ? '🟢 Ciclo Ativo' : '🔒 Ciclo Encerrado'}</b> (${cicloDados.dataInicio || 'Início'} até ${cicloDados.dataFim || 'Hoje'})
+       </div>
+    </div>
+  `;
+  container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function renderCalendario() {
@@ -2705,66 +2902,51 @@ function salvarNovoEdital() {
     return;
   }
 
-  let linhas = rawPlanilha.split('\n');
+  let linhas = rawPlanilha.split('\n').filter(l => l.trim() !== '');
   let topicos = [];
   let nextId = Date.now();
 
   let todosTopicosExistentes = getTodosTopicosGlobais();
   let sincronizadosAutomaticamente = 0;
 
+  // Se você quiser distribuir automaticamente as linhas coladas em quantidade X de metas:
+  let totalLinhas = linhas.length;
+  let qtdMetasDesejada = prompt(`O texto colado possui ${totalLinhas} linhas.\nEm quantas METAS (dias) deseja dividir este edital?`, "7");
+  let maxMetas = parseInt(qtdMetasDesejada) || 7;
+  
+  let linhasPorMeta = Math.ceil(totalLinhas / maxMetas);
+  let metaAtual = 1;
+  let contadorLinhasNaMeta = 0;
+
   linhas.forEach(linha => {
     let colunas = linha.split('\t');
-    if(colunas.length >= 3) {
-      let dia = parseInt(colunas[0].trim()) || 1;
-      let disc = colunas[1].trim();
-      let topicoNome = colunas[2].trim();
+    // Se colunas vierem coladas sem tabulação perfeita, trata por espaçamento ou assume 3 colunas
+    let disc = colunas[1] ? colunas[1].trim() : "Geral";
+    let topicoNome = colunas[2] ? colunas[2].trim() : colunas[0].trim();
+    let diaInformado = parseInt(colunas[0]) || metaAtual;
 
-      let discNorm = normalizarTextoParaComparacao(disc);
-      let topicoNorm = normalizarTextoParaComparacao(topicoNome);
+    // Se o usuário colocou o número da meta na 1ª coluna da planilha, respeita. Senão, divide pelo total de metas calculado.
+    let diaFinal = (colunas.length >= 3 && !isNaN(parseInt(colunas[0]))) ? parseInt(colunas[0]) : metaAtual;
 
-      let topicoCorrespondente = todosTopicosExistentes.find(t => 
-        normalizarTextoParaComparacao(t.disc) === discNorm &&
-        normalizarTextoParaComparacao(t.topico) === topicoNorm
-      );
+    let equivalenteIdFinal = `custom_${nextId}`;
 
-      if (!topicoCorrespondente) {
-        topicoCorrespondente = todosTopicosExistentes.find(t => 
-          normalizarTextoParaComparacao(t.topico) === topicoNorm
-        );
-      }
+    let novoItem = {
+      id: nextId++,
+      dia: diaFinal,
+      disc: disc,
+      topico: topicoNome,
+      meta: 10,
+      equivalente_id: equivalenteIdFinal
+    };
 
-      let equivalenteIdFinal = '';
+    topicos.push(novoItem);
 
-      if (topicoCorrespondente) {
-        if (topicoCorrespondente.equivalente_id) {
-          equivalenteIdFinal = topicoCorrespondente.equivalente_id;
-        } else {
-          equivalenteIdFinal = `sync_auto_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-          topicoCorrespondente.equivalente_id = equivalenteIdFinal;
-        }
-        sincronizadosAutomaticamente++;
-      } else {
-        equivalenteIdFinal = `custom_${nextId}`;
-      }
-
-      let novoItem = {
-        id: nextId++,
-        dia: dia,
-        disc: disc,
-        topico: topicoNome,
-        meta: 10,
-        equivalente_id: equivalenteIdFinal
-      };
-
-      topicos.push(novoItem);
-      todosTopicosExistentes.push(novoItem);
+    contadorLinhasNaMeta++;
+    if (contadorLinhasNaMeta >= linhasPorMeta && metaAtual < maxMetas) {
+      metaAtual++;
+      contadorLinhasNaMeta = 0;
     }
   });
-
-  if(topicos.length === 0) {
-    alert("Nenhum tópico válido encontrado. Verifique se copiou corretamente do Excel (separado por colunas).");
-    return;
-  }
 
   let novoEdital = {
     id: 'EDITAL_' + Date.now(),
@@ -2778,7 +2960,7 @@ function salvarNovoEdital() {
   localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
   salvarConteudoGlobalNaNuvem();
   
-  alert(`✅ Edital "${titulo}" criado com sucesso!\n🔗 ${sincronizadosAutomaticamente} tópico(s) identificado(s) e vinculado(s) automaticamente.`);
+  alert(`✅ Edital "${titulo}" criado com sucesso com ${maxMetas} metas configuradas!`);
   document.getElementById('input-novo-edital-titulo').value = '';
   document.getElementById('input-novo-edital-planilha').value = '';
   renderizarBotoesEditais();
@@ -3795,15 +3977,51 @@ function calcularEstadoOnline(dataStr) {
   }
 }
 
-// Registra o último momento em que o usuário REALMENTE interagiu com a tela
+// Registra interação com a tela e controla o Tempo de Uso Global (Pausa por inatividade/aba oculta)
 let ultimoMovimentoUsuario = Date.now();
+let tempoUsoGlobalTotal = parseInt(localStorage.getItem('cbmpe_tempo_uso_global')) || 0;
+let isUserActiveLocal = true;
+let idleTimerLocal = null;
+
+function atualizarDisplayTempoUso() {
+  let el = document.getElementById('global-time-display');
+  if (el) {
+    let h = Math.floor(tempoUsoGlobalTotal / 3600);
+    let m = Math.floor((tempoUsoGlobalTotal % 3600) / 60);
+    let s = tempoUsoGlobalTotal % 60;
+    if (h > 0) el.innerText = `${h}h ${m < 10 ? '0' : ''}${m}m`;
+    else el.innerText = `${m}m ${s < 10 ? '0' : ''}${s}s`;
+  }
+}
+
+setInterval(() => {
+  if (isUserActiveLocal && document.visibilityState === 'visible') {
+    tempoUsoGlobalTotal++;
+    // Salva no navegador a cada 10 segundos
+    if (tempoUsoGlobalTotal % 10 === 0) localStorage.setItem('cbmpe_tempo_uso_global', tempoUsoGlobalTotal);
+    atualizarDisplayTempoUso();
+  }
+}, 1000);
+
+function resetarInatividade() {
+  ultimoMovimentoUsuario = Date.now();
+  isUserActiveLocal = true;
+  let el = document.getElementById('global-usage-timer');
+  if (el) el.style.opacity = '1'; // Acende o relógio indicando atividade
+
+  clearTimeout(idleTimerLocal);
+  idleTimerLocal = setTimeout(() => {
+    isUserActiveLocal = false;
+    if (el) el.style.opacity = '0.5'; // Apaga o relógio (meia luz) indicando pausa
+  }, 2 * 60 * 1000); // 2 minutos parado = pausa o relógio
+}
 
 ['touchstart', 'mousemove', 'keydown', 'scroll', 'click'].forEach(evento => {
-  window.addEventListener(evento, () => {
-    ultimoMovimentoUsuario = Date.now();
-  }, { passive: true });
+  window.addEventListener(evento, resetarInatividade, { passive: true });
 });
 
+resetarInatividade();
+atualizarDisplayTempoUso();
 // Heartbeat a cada 2 minutos
 setInterval(() => {
   if (!MEU_ID_USUARIO) return;
