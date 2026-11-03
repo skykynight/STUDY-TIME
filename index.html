@@ -47,6 +47,9 @@
 <div class="topbar">
   <h1 id="app-main-title" onclick="showMainView('trilha')">🚒 CFO — App</h1>
   <div class="nav-group">
+    <div id="global-usage-timer" style="background: var(--card-bg2); border: 1px solid var(--brass); border-radius: 6px; padding: 5px 10px; font-family: var(--mono); font-size: 13px; font-weight: bold; color: var(--brass-2); display: flex; align-items: center; gap: 6px; transition: opacity 0.3s;" title="Tempo Online (Pausa se ficar inativo)">
+      ⏱️ <span id="global-time-display">0m 00s</span>
+    </div>
     <button class="tab-btn active" id="nav-trilha" onclick="showMainView('trilha')">🗺️ Trilha</button>
     <button class="tab-btn" id="nav-materias" onclick="showMainView('materias')">📚 Matérias</button>
     <button class="tab-btn" id="nav-cadernos" onclick="showMainView('cadernos')">🗂️ Cadernos</button>
