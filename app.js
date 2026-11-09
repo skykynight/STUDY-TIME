@@ -465,6 +465,13 @@ function getTopicStats(topicoId) {
 }
 
 // ================= SUPABASE SYNC (GLOBAL + INDIVIDUAL + RANKING) =================
+
+
+// ================= AJUSTE ANTI-CONCORRÊNCIA NA EXCLUSÃO =================
+
+const EDITAIS_EXCLUIDOS_KEY = 'cbmpe_editais_excluidos_v1';
+let editaisExcluidos = JSON.parse(localStorage.getItem(EDITAIS_EXCLUIDOS_KEY)) || [];
+
 async function baixarDadosDaNuvem() {
   if (!MEU_ID_USUARIO) return;
   try {
@@ -475,13 +482,18 @@ async function baixarDadosDaNuvem() {
     let jsonGlobal = await resGlobal.json();
     if (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) {
       let g = jsonGlobal[0].dados;
-      if(g.questoes) DB_QUESTOES_ALL = g.questoes;
-      if(g.teoria) DB_TEORIA = g.teoria;
+      if (g.questoes) DB_QUESTOES_ALL = g.questoes;
+      if (g.teoria) DB_TEORIA = g.teoria;
       
-      // Recebe os editais globais
-      if(g.editais && Array.isArray(g.editais)) {
-          editaisCustomizados = g.editais;
-          localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+      // Sincroniza a lista de IDs excluídos globalmente
+      let excluidosNuvem = Array.isArray(g.editais_excluidos) ? g.editais_excluidos : [];
+      editaisExcluidos = [...new Set([...editaisExcluidos, ...excluidosNuvem])];
+      localStorage.setItem(EDITAIS_EXCLUIDOS_KEY, JSON.stringify(editaisExcluidos));
+
+      // Filtra os editais recebidos descartando qualquer um marcado como excluído
+      if (g.editais && Array.isArray(g.editais)) {
+        editaisCustomizados = g.editais.filter(e => !editaisExcluidos.includes(e.id));
+        localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
       }
     } else {
       await salvarConteudoGlobalNaNuvem();
@@ -507,15 +519,14 @@ async function baixarDadosDaNuvem() {
       await salvarProgressoIndividualNaNuvem();
     }
 
-    if(CURSO_ATUAL) carregarEdital();
+    if (CURSO_ATUAL) carregarEdital();
     saveStateLocallyOnly();
-    if(CURSO_ATUAL) renderTrail();
+    if (CURSO_ATUAL) renderTrail();
     updateGlobalStats();
-    atualizarWidgetMeta(); // <--- ADICIONE ESTA LINHA AQUI
+    atualizarWidgetMeta();
     enviarPlacarParaRanking();
     
-    // Força a exibição dos novos editais na tela de Seleção
-    if(typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
+    if (typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
 
   } catch (e) {
     console.error("Erro ao sincronizar:", e);
@@ -532,15 +543,23 @@ async function salvarConteudoGlobalNaNuvem() {
     let jsonGlobal = await resGlobal.json();
     let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
     
-    // Garante que o payload envie o editaisCustomizados atual sem ressuscitar editais excluídos
+    let excluidosNuvem = Array.isArray(dadosNuvem.editais_excluidos) ? dadosNuvem.editais_excluidos : [];
+    editaisExcluidos = [...new Set([...editaisExcluidos, ...excluidosNuvem])];
+    localStorage.setItem(EDITAIS_EXCLUIDOS_KEY, JSON.stringify(editaisExcluidos));
+
+    // Garante que nenhum edital deletado seja reinserido por sessões paralelas
+    let listaFiltrada = editaisCustomizados.filter(e => !editaisExcluidos.includes(e.id));
+
     let payload = { 
       id: 'global', 
       dados: { 
         questoes: dadosNuvem.questoes || DB_QUESTOES_ALL, 
         teoria: { ...(dadosNuvem.teoria || {}), ...DB_TEORIA },
-        editais: editaisCustomizados // Salva exatamente a lista local atualizada
+        editais: listaFiltrada,
+        editais_excluidos: editaisExcluidos,
+        versao_editais: Date.now()
       }, 
-      atualizado_em: new Date() 
+      atualizado_em: new Date().toISOString()
     };
     
     await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
@@ -557,6 +576,77 @@ async function salvarConteudoGlobalNaNuvem() {
     if (typeof renderizarBotoesEditais === 'function') renderizarBotoesEditais();
   } catch (e) {
     console.error("Erro ao salvar conteúdo global na nuvem:", e);
+  }
+}
+
+async function excluirEditalCompleto(editalId) {
+  if (!editalId.startsWith('EDITAL_')) {
+    alert("Não é possível excluir os editais padrão do sistema.");
+    return;
+  }
+
+  let senha = prompt("⚠️ ATENÇÃO: Isto excluirá o edital para TODOS os utilizadores na nuvem.\n\nDigite a palavra-passe numérica (1 a 8) para confirmar:");
+  
+  if (senha === "12345678") {
+    // 1. Registra na blacklist de exclusão local e remove da lista de editais
+    if (!editaisExcluidos.includes(editalId)) {
+      editaisExcluidos.push(editalId);
+      localStorage.setItem(EDITAIS_EXCLUIDOS_KEY, JSON.stringify(editaisExcluidos));
+    }
+
+    editaisCustomizados = editaisCustomizados.filter(e => e.id !== editalId);
+    localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
+
+    popularSelectsGerenciador();
+    renderizarBotoesEditais();
+
+    if (CURSO_ATUAL === editalId) {
+      voltarParaSeletorTrilha();
+    }
+
+    // 2. Gravação imediata sobrescrevendo diretamente o nó global com a blacklist
+    try {
+      let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
+        method: 'GET',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+      });
+      
+      let jsonGlobal = await resGlobal.json();
+      let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
+
+      let excluidosNuvem = Array.isArray(dadosNuvem.editais_excluidos) ? dadosNuvem.editais_excluidos : [];
+      let todosExcluidos = [...new Set([...editaisExcluidos, ...excluidosNuvem, editalId])];
+
+      let payload = { 
+        id: 'global', 
+        dados: { 
+          questoes: dadosNuvem.questoes || DB_QUESTOES_ALL, 
+          teoria: dadosNuvem.teoria || DB_TEORIA,
+          editais: editaisCustomizados.filter(e => !todosExcluidos.includes(e.id)),
+          editais_excluidos: todosExcluidos,
+          versao_editais: Date.now()
+        }, 
+        atualizado_em: new Date().toISOString()
+      };
+      
+      await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
+        method: 'POST',
+        headers: { 
+          'apikey': SUPABASE_ANON_KEY, 
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 
+          'Content-Type': 'application/json', 
+          'Prefer': 'resolution=merge-duplicates' 
+        },
+        body: JSON.stringify(payload)
+      });
+
+      alert("🗑️ Edital excluído e bloqueado contra sincronizações concorrentes!");
+    } catch (e) {
+      console.error("Erro ao sincronizar exclusão com a nuvem:", e);
+      alert("Erro ao excluir na nuvem.");
+    }
+  } else {
+    if (senha !== null) alert("❌ Palavra-passe incorreta. Exclusão cancelada.");
   }
 }
 async function salvarProgressoIndividualNaNuvem() {
@@ -3090,66 +3180,7 @@ function executarSincronizacao() {
   }
 }
 
-async function excluirEditalCompleto(editalId) {
-  if (!editalId.startsWith('EDITAL_')) {
-    alert("Não é possível excluir os editais padrão do sistema.");
-    return;
-  }
 
-  let senha = prompt("⚠️ ATENÇÃO: Isto excluirá o edital para TODOS os utilizadores na nuvem.\n\nDigite a palavra-passe numérica (1 a 8) para confirmar:");
-  
-  if (senha === "12345678") {
-    // 1. Atualiza lista local
-    editaisCustomizados = editaisCustomizados.filter(e => e.id !== editalId);
-    localStorage.setItem(EDITAIS_CUSTOM_KEY, JSON.stringify(editaisCustomizados));
-
-    popularSelectsGerenciador();
-    renderizarBotoesEditais();
-
-    if (CURSO_ATUAL === editalId) {
-      voltarParaSeletorTrilha();
-    }
-
-    // 2. Grava na nuvem forçadamente sem puxar cache antigo
-    try {
-      let resGlobal = await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo?id=eq.global&select=dados`, {
-        method: 'GET',
-        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
-      });
-      
-      let jsonGlobal = await resGlobal.json();
-      let dadosNuvem = (jsonGlobal && jsonGlobal.length > 0 && jsonGlobal[0].dados) ? jsonGlobal[0].dados : {};
-
-      let payload = { 
-        id: 'global', 
-        dados: { 
-          questoes: dadosNuvem.questoes || DB_QUESTOES_ALL, 
-          teoria: dadosNuvem.teoria || DB_TEORIA,
-          editais: editaisCustomizados 
-        }, 
-        atualizado_em: new Date() 
-      };
-      
-      await fetch(`${SUPABASE_URL}/rest/v1/app_conteudo`, {
-        method: 'POST',
-        headers: { 
-          'apikey': SUPABASE_ANON_KEY, 
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 
-          'Content-Type': 'application/json', 
-          'Prefer': 'resolution=merge-duplicates' 
-        },
-        body: JSON.stringify(payload)
-      });
-
-      alert("🗑️ Edital excluído com sucesso da nuvem e de todos os dispositivos!");
-    } catch (e) {
-      console.error("Erro ao sincronizar exclusão com a nuvem:", e);
-      alert("Erro ao excluir na nuvem.");
-    }
-  } else {
-    if (senha !== null) alert("❌ Palavra-passe incorreta. Exclusão cancelada.");
-  }
-}
 
 async function carregarListaAdminNuvem() {
     let container = document.getElementById('admin-lista-nuvem');
